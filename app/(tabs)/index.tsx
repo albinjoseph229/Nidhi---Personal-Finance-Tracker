@@ -1,98 +1,100 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { FontAwesome } from '@expo/vector-icons';
+import { useTheme } from '@react-navigation/native'; // 👈 1. Import the useTheme hook
 import { Link } from 'expo-router';
+import React from 'react';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useData } from '../context/DataContext';
 
-export default function HomeScreen() {
+export default function DashboardScreen() {
+  const theme = useTheme(); // 👈 2. Get the current theme object
+  const { transactions, loading, syncData } = useData();
+
+  // 👇 3. Pass the theme to a function that creates our dynamic styles
+  const styles = getThemedStyles(theme);
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+    <View style={styles.container}>
+      {loading && transactions.length === 0 ? (
+        <ActivityIndicator size="large" color={theme.colors.primary} style={styles.loader} />
+      ) : (
+        <FlatList
+          data={transactions}
+          keyExtractor={(item, index) => `${item.Date}-${index}`}
+          renderItem={({ item }) => (
+            <View style={styles.item}>
+              <View>
+                <Text style={styles.itemCategory}>{item.Category}</Text>
+                <Text style={styles.itemNotes}>{item.Notes}</Text>
+              </View>
+              <Text style={styles.itemAmount}>₹{item.Amount}</Text>
+            </View>
+          )}
+          ListEmptyComponent={<Text style={styles.emptyText}>No transactions yet. Add one!</Text>}
+          refreshControl={
+            <RefreshControl refreshing={loading} onRefresh={syncData} tintColor={theme.colors.text} />
+          }
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
-
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      )}
+      
+      <Link href="/add-expense" asChild>
+        <Pressable style={styles.fab}>
+          <FontAwesome name="plus" size={24} color="white" />
+        </Pressable>
+      </Link>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+// 👇 4. Create a function that generates styles based on the theme
+const getThemedStyles = (theme: any) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background, // Use theme background
+  },
+  loader: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  item: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 15,
+    backgroundColor: theme.colors.card, // Use theme card color for list items
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border, // Use theme border color
+    alignItems: 'center',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
+  itemCategory: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.text, // Use theme text color
+  },
+  itemNotes: {
+    fontSize: 12,
+    color: 'gray', // Gray works well for secondary text in both themes
+  },
+  itemAmount: {
+    fontSize: 16,
+    color: 'red', // Kept as red to signify an expense
+    fontWeight: 'bold',
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 50,
+    fontSize: 16,
+    color: theme.colors.text, // Use theme text color
+  },
+  fab: {
     position: 'absolute',
+    bottom: 30,
+    right: 30,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#007BFF', // Brand color, usually stays the same
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
   },
 });
