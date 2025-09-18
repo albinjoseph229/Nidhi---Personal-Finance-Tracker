@@ -1,32 +1,31 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from '@react-navigation/native'; // 👈 1. Import the useTheme hook
-import axios from 'axios';
-import { useFocusEffect } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Link } from 'expo-router';
+import React, { useMemo } from 'react';
+import { ActivityIndicator, Button, Dimensions, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PieChart } from 'react-native-chart-kit';
+import { useAppData } from '../../context/AppContext';
 
-import { API_KEY, API_URL } from '../../config';
-import { useData } from '../context/DataContext';
-
-// ... ChartData interface remains the same
+interface ChartData {
+  name: string;
+  amount: number;
+  color: string;
+  legendFontColor: string;
+  legendFontSize: number;
+}
 
 const screenWidth = Dimensions.get('window').width;
 
 export default function ReportsScreen() {
-  const theme = useTheme(); // 👈 2. Get the current theme object
-  const { transactions, loading } = useData();
-  const [monthlyBudget, setMonthlyBudget] = useState(0);
-  const [isBudgetLoading, setIsBudgetLoading] = useState(true);
+  // THE FIX: Use the correct function name 'triggerFullSync' from the context
+  const { transactions, budgets, isSyncing, triggerFullSync } = useAppData();
 
-  const { chartData, totalExpenses } = useMemo(() => {
+  const { chartData, totalExpenses, monthlyBudget } = useMemo(() => {
+    // ... (calculation logic is correct, no changes needed)
     let total = 0;
     const spendingByCategory = transactions
-      .filter(t => t.Type === 'Expense' && t.Amount > 0)
-      .reduce((acc, transaction) => {
-        const { Category, Amount } = transaction;
-        total += Amount;
-        acc[Category] = (acc[Category] || 0) + Amount;
+      .filter(t => t.amount > 0)
+      .reduce((acc, tx) => {
+        total += tx.amount;
+        acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
         return acc;
       }, {} as { [key: string]: number });
 
@@ -34,89 +33,88 @@ export default function ReportsScreen() {
       name: category,
       amount: spendingByCategory[category],
       color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
-      legendFontColor: theme.colors.text, // 👈 3. Use theme color for the chart legend
+      legendFontColor: '#7F7F7F',
       legendFontSize: 15,
     }));
-    
-    return { chartData: formattedChartData, totalExpenses: total };
-  }, [transactions, theme]); // Add theme to dependency array
 
-  // ... fetchBudget function remains the same
+    const today = new Date();
+    const currentMonthYear = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const budget = budgets.find(b => b.monthYear === currentMonthYear);
 
-  // --- No changes to the data fetching logic ---
-  const fetchBudget = async () => {
-    setIsBudgetLoading(true);
-    const date = new Date();
-    const currentMonthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    const BUDGET_CACHE_KEY = `budget-${currentMonthYear}`;
-
-    try {
-      const cachedBudget = await AsyncStorage.getItem(BUDGET_CACHE_KEY);
-      if (cachedBudget) {
-        setMonthlyBudget(JSON.parse(cachedBudget));
-      }
-      const budgetResponse = await axios.get(`${API_URL}?apiKey=${API_KEY}&action=getBudget&monthYear=${currentMonthYear}`);
-      
-      if (budgetResponse.data.status === "success") {
-        const fetchedBudget = budgetResponse.data.data.budget;
-        if (fetchedBudget !== monthlyBudget) {
-          setMonthlyBudget(fetchedBudget);
-          await AsyncStorage.setItem(BUDGET_CACHE_KEY, JSON.stringify(fetchedBudget));
-        }
-      }
-    } catch (error) {
-      console.error("Failed to fetch budget:", error);
-    } finally {
-      setIsBudgetLoading(false);
-    }
-  };
-  useFocusEffect(useCallback(() => { fetchBudget(); }, []));
-  // --- End of data fetching logic ---
+    return { 
+      chartData: formattedChartData, 
+      totalExpenses: total, 
+      monthlyBudget: budget?.amount || 0 
+    };
+  }, [transactions, budgets]);
 
   const budgetProgress = monthlyBudget > 0 ? (totalExpenses / monthlyBudget) * 100 : 0;
   const progressWidth = Math.min(budgetProgress, 100);
 
-  // Here we pass the theme to our new dynamic styles function
-  const styles = getThemedStyles(theme);
+  // THE FIX: The 'onRefresh' gesture now triggers a full network sync
+  const onRefresh = async () => {
+    await triggerFullSync();
+  };
 
-  if (loading && transactions.length === 0) {
-    return <ActivityIndicator size="large" style={styles.loader} />;
+  if (isSyncing && transactions.length === 0) {
+      return (
+        <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color="#4CAF50" />
+            <Text style={styles.loadingText}>Syncing your data...</Text>
+        </View>
+      );
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={isSyncing} onRefresh={onRefresh} />
+      }
+    >
       <Text style={styles.header}>Monthly Summary</Text>
       
-      {isBudgetLoading && monthlyBudget === 0 ? (
-        <ActivityIndicator style={{ marginVertical: 20 }} />
-      ) : monthlyBudget > 0 ? (
-        <View style={styles.budgetContainer}>
-          <View style={styles.budgetTextContainer}>
-            <Text style={styles.budgetText}>Spent: ₹{totalExpenses.toFixed(2)}</Text>
-            <Text style={styles.budgetText}>Budget: ₹{monthlyBudget.toFixed(2)}</Text>
-          </View>
-          <View style={styles.progressBarBackground}>
-            <View style={[styles.progressBarFill, { width: `${progressWidth}%` }]} />
-          </View>
+      <View style={styles.budgetSection}>
+        <View style={styles.budgetHeader}>
+          <Text style={styles.subHeader}>Budget</Text>
+          <Link href="/set-budget" asChild>
+            <Button title={monthlyBudget > 0 ? "Edit Budget" : "Set Budget"} />
+          </Link>
         </View>
-      ) : (
-         <Text style={styles.noDataText}>No budget set for this month.</Text>
-      )}
-
+        
+        {monthlyBudget > 0 ? (
+          <View style={styles.budgetContainer}>
+            <View style={styles.budgetTextContainer}>
+              <Text style={styles.budgetText}>Spent: ₹{totalExpenses.toFixed(2)}</Text>
+              <Text style={styles.budgetText}>Budget: ₹{monthlyBudget.toFixed(2)}</Text>
+            </View>
+            <View style={styles.progressBarBackground}>
+              <View style={[styles.progressBarFill, { width: `${progressWidth}%` }]} />
+            </View>
+            <Text style={styles.progressText}>
+              {budgetProgress.toFixed(1)}% of budget used
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.noDataText}>No budget set for this month.</Text>
+        )}
+      </View>
+      
       <Text style={styles.header}>Spending Breakdown</Text>
       {chartData.length > 0 ? (
-        <PieChart
-          data={chartData}
-          width={screenWidth - 16}
-          height={220}
-          chartConfig={{
-            color: (opacity = 1) => theme.colors.text, // Use theme color for chart
-          }}
-          accessor={"amount"}
-          backgroundColor={"transparent"}
-          paddingLeft={"15"}
-          absolute
-        />
+        <>
+          <Text style={styles.totalText}>Total Spent: ₹{totalExpenses.toFixed(2)}</Text>
+          <PieChart
+            data={chartData}
+            width={screenWidth - 16}
+            height={220}
+            chartConfig={{ color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})` }}
+            accessor={"amount"}
+            backgroundColor={"transparent"}
+            paddingLeft={"15"}
+            absolute
+          />
+        </>
       ) : (
         <Text style={styles.noDataText}>No expense data to display.</Text>
       )}
@@ -124,54 +122,50 @@ export default function ReportsScreen() {
   );
 }
 
-// 👇 4. Create a function that generates styles based on the theme
-const getThemedStyles = (theme: any) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background, // Use theme background color
-    padding: 8,
-  },
-  loader: {
-    flex: 1,
-    justifyContent: 'center',
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  loaderContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
     alignItems: 'center',
+    backgroundColor: '#f5f5f5'
   },
-  header: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginVertical: 20,
-    color: theme.colors.text, // Use theme text color
-  },
-  noDataText: {
-    textAlign: 'center',
-    marginTop: 20,
+  loadingText: {
+    marginTop: 10,
     fontSize: 16,
-    color: 'gray', // Gray often works for both themes, but theme.colors.border is another option
+    color: '#666',
   },
-  budgetContainer: {
-    paddingHorizontal: 16,
+  header: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginVertical: 20 },
+  subHeader: { fontSize: 18, fontWeight: '600' },
+  totalText: { fontSize: 18, fontWeight: '600', textAlign: 'center', marginBottom: 10, color: '#333' },
+  noDataText: { textAlign: 'center', paddingVertical: 20, fontSize: 16, color: 'gray' },
+  budgetSection: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 15,
+    marginHorizontal: 8,
     marginBottom: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
   },
-  budgetTextContainer: {
+  budgetHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    alignItems: 'center',
+    marginBottom: 15,
   },
-  budgetText: {
-    fontSize: 16,
-    color: theme.colors.text, // Use theme text color
-  },
-  progressBarBackground: {
-    height: 20,
-    width: '100%',
-    backgroundColor: theme.colors.border, // Use a neutral theme color
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#4CAF50', // A brand color, often kept the same in both modes
-    borderRadius: 10,
+  budgetContainer: {},
+  budgetTextContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  budgetText: { fontSize: 16, color: '#555' },
+  progressBarBackground: { height: 20, width: '100%', backgroundColor: '#e0e0e0', borderRadius: 10, overflow: 'hidden' },
+  progressBarFill: { height: '100%', backgroundColor: '#4CAF50', borderRadius: 10 },
+  progressText: { 
+    fontSize: 14, 
+    color: '#666', 
+    textAlign: 'center', 
+    marginTop: 5 
   },
 });

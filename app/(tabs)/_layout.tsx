@@ -6,31 +6,37 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#007BFF',
-        // Setting headerShown to false here can be cleaner 
-        // if the parent Stack navigator is already showing a header.
-        // Or keep it true if you want a header specific to the tabs.
-        headerShown: true, 
+        headerShown: true,
+        tabBarActiveTintColor: '#4CAF50', // A nice green color for the active icon
+        tabBarInactiveTintColor: '#9E9E9E', // A gray color for inactive icons
+        tabBarStyle: {
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 0,
+          elevation: 10,
+          height: 60,
+          paddingBottom: 5,
+        },
+        tabBarShowLabel: false, // Hide the text labels
       }}>
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: 'History',
+          tabBarIcon: ({ color }) => <FontAwesome name="history" size={28} color={color} />,
+        }}
+      />
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color, size }) => <FontAwesome name="home" size={size} color={color} />,
+          title: 'Overview', // "index" is the main dashboard
+          tabBarIcon: ({ color }) => <FontAwesome name="home" size={32} color={color} />,
         }}
       />
       <Tabs.Screen
         name="reports"
         options={{
           title: 'Reports',
-          tabBarIcon: ({ color, size }) => <FontAwesome name="pie-chart" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, size }) => <FontAwesome name="cog" size={size} color={color} />,
+          tabBarIcon: ({ color }) => <FontAwesome name="pie-chart" size={28} color={color} />,
         }}
       />
     </Tabs>
