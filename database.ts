@@ -2,7 +2,7 @@ import axios from "axios";
 import * as SQLite from "expo-sqlite";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
-import { API_KEY, API_URL } from "./config";
+import { API_KEY, API_URL } from "./config.js";
 
 const db = SQLite.openDatabaseSync("expenses.db");
 
