@@ -117,25 +117,28 @@ export default function HomeScreen() {
         <ThemedView lightColor="#1C1C1E" darkColor={cardColor} style={[styles.analyticsCard, { shadowColor: textColor }]}>
           <View style={styles.analyticsHeader}>
             <ThemedText lightColor="#FFFFFF" darkColor={textColor} style={styles.analyticsTitle}>Analytics</ThemedText>
-            <ThemedText style={[styles.analyticsMonth, { color: secondaryTextColor }]}>This month</ThemedText>
+            
+            {budgetLeft < 0 ? (
+              <View style={styles.overBudgetTag}>
+                <ThemedText lightColor="#FFFFFF" darkColor={textColor} style={styles.overBudgetText}>
+                  {formatAmount(Math.abs(budgetLeft))} over
+                </ThemedText>
+              </View>
+            ) : (
+              <ThemedText style={[styles.analyticsMonth, { color: secondaryTextColor }]}>This month</ThemedText>
+            )}
           </View>
           
-          {budgetLeft < 0 && (
-            <View style={styles.overBudgetTag}>
-               <ThemedText lightColor="#FFFFFF" darkColor={textColor} style={styles.overBudgetText}>{formatAmount(Math.abs(budgetLeft))} over</ThemedText>
-            </View>
-          )}
-
           <View style={styles.chartContainer}>
             {weeklySpendData.map((item, index) => {
-               const maxAmount = Math.max(...weeklySpendData.map(d => d.amount), 1);
-               const barHeight = (item.amount / maxAmount) * 80;
-               return (
-                 <View key={index} style={styles.barWrapper}>
-                   <View style={[styles.bar, { height: barHeight }]} />
-                   <ThemedText style={[styles.barLabel, { color: secondaryTextColor }]}>{item.day}</ThemedText>
-                 </View>
-               );
+                const maxAmount = Math.max(...weeklySpendData.map(d => d.amount), 1);
+                const barHeight = (item.amount / maxAmount) * 80;
+                return (
+                  <View key={index} style={styles.barWrapper}>
+                    <View style={[styles.bar, { height: barHeight }]} />
+                    <ThemedText style={[styles.barLabel, { color: secondaryTextColor }]}>{item.day}</ThemedText>
+                  </View>
+                );
             })}
           </View>
         </ThemedView>
@@ -235,7 +238,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 24,
     marginBottom: 20,
-    position: 'relative',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 12,
@@ -245,7 +247,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16, // Added margin to space out from the chart
   },
   analyticsTitle: {
     fontSize: 18,
@@ -255,14 +257,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   overBudgetTag: {
-    position: 'absolute',
-    top: 60,
-    left: '50%',
-    transform: [{ translateX: -40 }],
     backgroundColor: '#FF3B30',
     borderRadius: 8,
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
   },
   overBudgetText: {
     fontSize: 12,

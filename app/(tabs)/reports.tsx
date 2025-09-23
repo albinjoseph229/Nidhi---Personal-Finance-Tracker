@@ -144,11 +144,17 @@ export default function ReportsScreen() {
   };
 
   const getCurrentChartData = () => viewMode === "current" ? currentMonthData : yearlyData;
+  
+  // Updated bar chart data with shorter labels
   const getBarChartData = () => {
     const data = getCurrentChartData();
     const sortedData = [...data].sort((a, b) => b.amount - a.amount).slice(0, 5);
     return {
-      labels: sortedData.map((item) => item.name),
+      labels: sortedData.map((item) => {
+        // Truncate labels to prevent cutoff
+        const label = item.name;
+        return label.length > 8 ? label.substring(0, 8) + '...' : label;
+      }),
       datasets: [{ data: sortedData.map((item) => item.amount) }],
     };
   };
@@ -255,8 +261,19 @@ export default function ReportsScreen() {
             <View style={styles.chartContainer}>
               {viewMode !== "monthly" && chartType === "pie" ? (
                 <>
-                  <View style={{ marginLeft: -15 }}>
-                    <PieChart data={getCurrentChartData()} width={screenWidth} height={220} chartConfig={chartConfig} accessor="amount" backgroundColor="transparent" paddingLeft="15" absolute hasLegend={false} />
+                  <View style={styles.pieChartContainer}>
+                    <PieChart 
+                      data={getCurrentChartData()} 
+                      width={screenWidth - 40} 
+                      height={220} 
+                      chartConfig={chartConfig} 
+                      accessor="amount" 
+                      backgroundColor="transparent" 
+                      paddingLeft="80" 
+                      center={[20, 0]}
+                      absolute 
+                      hasLegend={false} 
+                    />
                   </View>
                   <View style={styles.legendContainer}>
                     {getCurrentChartData().map((item) => (
@@ -268,11 +285,34 @@ export default function ReportsScreen() {
                   </View>
                 </>
               ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.barChartScrollContainer}>
                   {viewMode === "monthly" ? (
-                    <LineChart data={{ labels: monthlyTrends.map((m) => m.month), datasets: [{ data: monthlyTrends.map((m) => m.amount) }] }} width={960} height={220} chartConfig={chartConfig} bezier style={styles.chart} />
+                    <LineChart 
+                      data={{ labels: monthlyTrends.map((m) => m.month), datasets: [{ data: monthlyTrends.map((m) => m.amount) }] }} 
+                      width={960} 
+                      height={220} 
+                      chartConfig={chartConfig} 
+                      bezier 
+                      style={styles.chart} 
+                    />
                   ) : (
-                    <BarChart data={getBarChartData()} width={getBarChartData().labels.length * 100} height={280} chartConfig={chartConfig} yAxisLabel="" yAxisSuffix="" style={styles.chart} fromZero verticalLabelRotation={30} />
+                    <View style={styles.barChartContainer}>
+                      <BarChart 
+                        data={getBarChartData()} 
+                        width={Math.max(screenWidth - 40, getBarChartData().labels.length * 80)} 
+                        height={300} 
+                        chartConfig={chartConfig} 
+                        yAxisLabel="" 
+                        yAxisSuffix="" 
+                        style={{
+                          borderRadius: 20,
+                          marginVertical: 8,
+                        }} 
+                        fromZero 
+                        showBarTops={false}
+                        showValuesOnTopOfBars={false}
+                      />
+                    </View>
                   )}
                 </ScrollView>
               )}
@@ -319,7 +359,24 @@ const styles = StyleSheet.create({
   chartHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   chartTypeSelector: { flexDirection: "row", gap: 16, marginBottom: 16 },
   chartContainer: { alignItems: "center", marginTop: 16 },
+  // Updated pie chart container for right positioning
+  pieChartContainer: { 
+    width: '100%',
+    alignItems: 'flex-end',
+    paddingLeft: 40,
+  },
+  // Updated bar chart styles
+  barChartScrollContainer: {
+    paddingHorizontal: 10,
+  },
+  barChartContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
   chart: { borderRadius: 20 },
+  barChart: {
+    marginVertical: 8,
+  },
   noDataContainer: { alignItems: "center", paddingVertical: 40 },
   noDataText: { fontSize: 16, fontWeight: "600", marginTop: 16 },
   legendContainer: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", marginTop: 20, paddingHorizontal: 10 },

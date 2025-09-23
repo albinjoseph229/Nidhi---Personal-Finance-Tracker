@@ -12,7 +12,7 @@ import { useThemeColor } from '../../hooks/use-theme-color';
 const AddExpenseButton = () => {
   const router = useRouter();
   const { theme } = useTheme();
-  
+
   // Define colors for the button based on the theme
   const buttonBackgroundColor = theme === 'light' ? '#4A90E2' : useThemeColor({}, 'card');
   const iconColor = theme === 'light' ? '#FFFFFF' : useThemeColor({}, 'text');
@@ -22,7 +22,7 @@ const AddExpenseButton = () => {
     <TouchableOpacity
       onPress={() => router.push('/add-expense')}
       style={{
-        top: -22, 
+        top: -22,
         justifyContent: 'center',
         alignItems: 'center',
         width: 58,
@@ -57,19 +57,23 @@ export default function TabLayout() {
         tabBarInactiveTintColor: inactiveTabColor,
         tabBarStyle: {
           position: 'absolute',
-          bottom: 15, 
-          left: 20,
-          right: 20,
+          // MODIFIED: Changed style for a full-width tab bar
+          bottom: 0,
+          left: 0,
+          right: 0,
           elevation: 0,
           backgroundColor: cardColor,
-          borderRadius: 30,
-          height: 60,
+          height: 65, // Slightly increased height for better visual spacing
           borderTopWidth: 0,
-          // Make shadow conditional for a cleaner dark mode
+          // MODIFIED: Adjusted shadow for a bottom-anchored bar
           shadowColor: shadowColor,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: theme === 'light' ? 0.1 : 0,
+          shadowOffset: { width: 0, height: -3 }, // Shadow now goes upwards
+          shadowOpacity: theme === 'light' ? 0.05 : 0, // More subtle shadow
           shadowRadius: 3.84,
+        },
+        // NEW: Added tabBarItemStyle to lower the icons
+        tabBarItemStyle: {
+          paddingTop: 5, // This pushes the icons down. Adjust the value as needed.
         },
       }}>
       <Tabs.Screen
