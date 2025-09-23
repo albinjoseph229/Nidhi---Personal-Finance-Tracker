@@ -1,26 +1,25 @@
 // In app/(tabs)/_layout.tsx
 import { Feather } from '@expo/vector-icons';
-import { Tabs, useRouter } from 'expo-router';
-import React from 'react';
+import { Tabs } from 'expo-router';
+import React, { useState } from 'react'; // Import useState
 import { TouchableOpacity } from 'react-native';
 
-// Import our theme hooks
+// Import our theme hooks and the new modal component
+import { AddTransactionModal } from '../../components/AddTransactionModal';
 import { useTheme } from '../../context/ThemeContext';
 import { useThemeColor } from '../../hooks/use-theme-color';
 
-// The custom button now uses theme hooks to get its colors
-const AddExpenseButton = () => {
-  const router = useRouter();
+// The button now takes an `onPress` prop to be more reusable
+const AddTransactionButton = ({ onPress }: { onPress: () => void }) => {
   const { theme } = useTheme();
-
-  // Define colors for the button based on the theme
+  
   const buttonBackgroundColor = theme === 'light' ? '#4A90E2' : useThemeColor({}, 'card');
   const iconColor = theme === 'light' ? '#FFFFFF' : useThemeColor({}, 'text');
   const shadowColor = useThemeColor({}, 'text');
 
   return (
     <TouchableOpacity
-      onPress={() => router.push('/add-expense')}
+      onPress={onPress} // Use the onPress prop passed from the parent
       style={{
         top: -22,
         justifyContent: 'center',
@@ -31,7 +30,7 @@ const AddExpenseButton = () => {
         backgroundColor: buttonBackgroundColor,
         shadowColor: shadowColor,
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: theme === 'light' ? 0.25 : 0.4, // Adjust shadow for dark mode
+        shadowOpacity: theme === 'light' ? 0.25 : 0.4,
         shadowRadius: 3.84,
         elevation: 5,
       }}>
@@ -41,81 +40,88 @@ const AddExpenseButton = () => {
 };
 
 export default function TabLayout() {
-  // Fetch theme colors inside the component
+  const { theme } = useTheme();
   const cardColor = useThemeColor({}, 'card');
   const activeTabColor = useThemeColor({}, 'text');
   const inactiveTabColor = useThemeColor({}, 'tabIconDefault');
   const shadowColor = useThemeColor({}, 'text');
-  const { theme } = useTheme();
+
+  // State to control the modal's visibility
+  const [isModalVisible, setModalVisible] = useState(false);
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarShowLabel: false,
-        tabBarActiveTintColor: activeTabColor,
-        tabBarInactiveTintColor: inactiveTabColor,
-        tabBarStyle: {
-          position: 'absolute',
-          // MODIFIED: Changed style for a full-width tab bar
-          bottom: 0,
-          left: 0,
-          right: 0,
-          elevation: 0,
-          backgroundColor: cardColor,
-          height: 65, // Slightly increased height for better visual spacing
-          borderTopWidth: 0,
-          // MODIFIED: Adjusted shadow for a bottom-anchored bar
-          shadowColor: shadowColor,
-          shadowOffset: { width: 0, height: -3 }, // Shadow now goes upwards
-          shadowOpacity: theme === 'light' ? 0.05 : 0, // More subtle shadow
-          shadowRadius: 3.84,
-        },
-        // NEW: Added tabBarItemStyle to lower the icons
-        tabBarItemStyle: {
-          paddingTop: 5, // This pushes the icons down. Adjust the value as needed.
-        },
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <Feather name="home" size={26} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="history"
-        options={{
-          title: 'History',
-          tabBarIcon: ({ color }) => <Feather name="calendar" size={26} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="add-expense"
-        options={{
-          title: 'Add Expense',
-          tabBarButton: () => <AddExpenseButton />,
-        }}
-        listeners={{
-          tabPress: e => {
-            e.preventDefault();
+    // Use a React Fragment to render the Tabs and Modal as siblings
+    <>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarShowLabel: false,
+          tabBarActiveTintColor: activeTabColor,
+          tabBarInactiveTintColor: inactiveTabColor,
+          tabBarStyle: {
+            position: 'absolute',
+            bottom: 15, 
+            left: 20,
+            right: 20,
+            elevation: 0,
+            backgroundColor: cardColor,
+            borderRadius: 30,
+            height: 60,
+            borderTopWidth: 0,
+            shadowColor: shadowColor,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: theme === 'light' ? 0.1 : 0,
+            shadowRadius: 3.84,
           },
-        }}
+        }}>
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: 'Home',
+            tabBarIcon: ({ color }) => <Feather name="home" size={26} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="history"
+          options={{
+            title: 'History',
+            tabBarIcon: ({ color }) => <Feather name="calendar" size={26} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="add-transaction" 
+          options={{
+            title: 'Add',
+            // The button now opens the modal by setting state
+            tabBarButton: () => <AddTransactionButton onPress={() => setModalVisible(true)} />,
+          }}
+          listeners={{
+            tabPress: e => {
+              e.preventDefault();
+            },
+          }}
+        />
+        <Tabs.Screen
+          name="reports"
+          options={{
+            title: 'Reports',
+            tabBarIcon: ({ color }) => <Feather name="pie-chart" size={26} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: 'Profile',
+            tabBarIcon: ({ color }) => <Feather name="user" size={26} color={color} />,
+          }}
+        />
+      </Tabs>
+
+      {/* Render our custom modal here, controlled by the state */}
+      <AddTransactionModal 
+        isVisible={isModalVisible} 
+        onClose={() => setModalVisible(false)} 
       />
-      <Tabs.Screen
-        name="reports"
-        options={{
-          title: 'Reports',
-          tabBarIcon: ({ color }) => <Feather name="pie-chart" size={26} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => <Feather name="user" size={26} color={color} />,
-        }}
-      />
-    </Tabs>
+    </>
   );
 }

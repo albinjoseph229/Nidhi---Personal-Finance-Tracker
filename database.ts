@@ -10,6 +10,7 @@ export interface Transaction {
   id?: number;
   uuid: string;
   amount: number;
+  type: "income" | "expense";
   category: string;
   date: string;
   notes: string;
@@ -26,6 +27,7 @@ export const init = () => {
     `CREATE TABLE IF NOT EXISTS transactions (
       id INTEGER PRIMARY KEY NOT NULL,
       uuid TEXT UNIQUE,
+      type TEXT NOT NULL DEFAULT 'expense', -- ADD THIS LINE
       amount REAL NOT NULL,
       category TEXT NOT NULL,
       date TEXT NOT NULL,
@@ -39,11 +41,15 @@ export const init = () => {
       amount REAL NOT NULL
     );`
   );
-  
+
   // Create index for better performance
-  db.execSync(`CREATE INDEX IF NOT EXISTS idx_transactions_uuid ON transactions(uuid);`);
-  db.execSync(`CREATE INDEX IF NOT EXISTS idx_transactions_synced ON transactions(isSynced);`);
-  
+  db.execSync(
+    `CREATE INDEX IF NOT EXISTS idx_transactions_uuid ON transactions(uuid);`
+  );
+  db.execSync(
+    `CREATE INDEX IF NOT EXISTS idx_transactions_synced ON transactions(isSynced);`
+  );
+
   try {
     const result = db.getFirstSync(
       `SELECT count(*) as count FROM pragma_table_info('transactions') WHERE name='uuid';`
@@ -52,9 +58,14 @@ export const init = () => {
     if (result && result.count === 0) {
       db.execSync(`ALTER TABLE transactions ADD COLUMN uuid TEXT UNIQUE;`);
       // Generate UUIDs for existing transactions
-      const existingTxs = db.getAllSync(`SELECT id FROM transactions WHERE uuid IS NULL;`) as { id: number }[];
+      const existingTxs = db.getAllSync(
+        `SELECT id FROM transactions WHERE uuid IS NULL;`
+      ) as { id: number }[];
       for (const tx of existingTxs) {
-        db.runSync(`UPDATE transactions SET uuid = ? WHERE id = ?;`, [uuidv4(), tx.id]);
+        db.runSync(`UPDATE transactions SET uuid = ? WHERE id = ?;`, [
+          uuidv4(),
+          tx.id,
+        ]);
       }
     }
   } catch (e) {
@@ -63,19 +74,31 @@ export const init = () => {
   console.log("Database initialized");
 };
 
+// Also update the addTransaction function to ensure consistent date format
 export const addTransaction = async (
   txData: Omit<Transaction, "isSynced" | "id" | "uuid">
 ): Promise<void> => {
   const newUuid = uuidv4();
+  
+  // Ensure date is in ISO format
+  const normalizedDate = new Date(txData.date).toISOString();
+  
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO transactions (uuid, amount, category, date, notes, isSynced) VALUES (?, ?, ?, ?, ?, 0);`,
-      newUuid, txData.amount, txData.category, txData.date, txData.notes
+      `INSERT INTO transactions (uuid, type, amount, category, date, notes, isSynced) VALUES (?, ?, ?, ?, ?, ?, 0);`,
+      newUuid,
+      txData.type,
+      txData.amount,
+      txData.category,
+      normalizedDate, // Use normalized date
+      txData.notes
     );
   });
-  
-  // Start background sync without waiting
-  uploadUnsyncedTransactions().catch(error => {
+
+  console.log(`Added transaction: ${newUuid}, Date: ${normalizedDate}, Type: ${txData.type}`);
+
+  // Start background sync without waiting for it to complete
+  uploadUnsyncedTransactions().catch((error) => {
     console.error("Background transaction sync failed:", error);
   });
 };
@@ -101,22 +124,22 @@ const uploadUnsyncedTransactions = async (): Promise<void> => {
   try {
     const unsyncedTxs = await getUnsyncedTransactions();
     console.log(`Found ${unsyncedTxs.length} unsynced transactions`);
-    
+
     for (const tx of unsyncedTxs) {
       try {
         await axios.post(API_URL, {
           apiKey: API_KEY,
-          action: "addExpense",
+          action: "addTransaction",
           data: {
             uuid: tx.uuid,
             date: tx.date,
             category: tx.category,
             amount: tx.amount,
             notes: tx.notes,
-            type: "expense" // Add default type if needed
-          }
+            type: tx.type, // Add default type if needed
+          },
         });
-        
+
         // Mark as synced
         await db.runAsync(
           `UPDATE transactions SET isSynced = 1 WHERE uuid = ?;`,
@@ -148,24 +171,25 @@ export const setBudgetForMonth = async (budget: Budget): Promise<void> => {
   // Save locally first
   await db.runAsync(
     `INSERT OR REPLACE INTO budgets (monthYear, amount) VALUES (?, ?);`,
-    budget.monthYear, budget.amount
+    budget.monthYear,
+    budget.amount
   );
-  
+
   // Background sync without waiting
-  axios.post(API_URL, {
-    apiKey: API_KEY,
-    action: "setBudget",
-    data: { MonthYear: budget.monthYear, BudgetAmount: budget.amount },
-  })
-  .then(() => {
-    console.log(`Budget for ${budget.monthYear} synced successfully.`);
-  })
-  .catch(error => {
-    console.error("Background budget sync failed:", error);
-  });
+  axios
+    .post(API_URL, {
+      apiKey: API_KEY,
+      action: "setBudget",
+      data: { MonthYear: budget.monthYear, BudgetAmount: budget.amount },
+    })
+    .then(() => {
+      console.log(`Budget for ${budget.monthYear} synced successfully.`);
+    })
+    .catch((error) => {
+      console.error("Background budget sync failed:", error);
+    });
 };
 
-// IMPROVED: Better sync with error handling and deduplication
 export const syncData = async (): Promise<void> => {
   console.log("Starting full sync process...");
   try {
@@ -178,31 +202,107 @@ export const syncData = async (): Promise<void> => {
       `${API_URL}?apiKey=${API_KEY}&action=getTransactions`,
       { timeout: 10000 } // 10 second timeout
     );
-    
+
     const sheetTransactions = txResponse.data.data || [];
-    console.log(`Downloaded ${sheetTransactions.length} transactions from sheets`);
-    
+    console.log(
+      `Downloaded ${sheetTransactions.length} transactions from sheets`
+    );
+
+    // Helper function to normalize date format
+    const normalizeDate = (dateStr: any): string => {
+      if (!dateStr) return new Date().toISOString();
+      
+      let date: Date;
+      
+      // Handle different possible formats from Google Sheets
+      if (typeof dateStr === 'string') {
+        if (dateStr.includes('T')) {
+          // Already ISO format
+          date = new Date(dateStr);
+        } else if (dateStr.includes('/')) {
+          // MM/DD/YYYY or DD/MM/YYYY format
+          date = new Date(dateStr);
+        } else if (dateStr.includes('-')) {
+          // YYYY-MM-DD format - ensure it's treated as UTC
+          date = new Date(dateStr + 'T00:00:00.000Z');
+        } else {
+          date = new Date(dateStr);
+        }
+      } else if (dateStr instanceof Date) {
+        date = dateStr;
+      } else {
+        // Fallback
+        date = new Date(dateStr);
+      }
+      
+      // Validate the date
+      if (isNaN(date.getTime())) {
+        console.warn(`Invalid date received: ${dateStr}, using current date`);
+        date = new Date();
+      }
+      
+      // Return as ISO string
+      return date.toISOString();
+    };
+
     // 3. Merge with local data (avoid duplicates)
     await db.withTransactionAsync(async () => {
       for (const sheetTx of sheetTransactions) {
+        // Normalize the date from sheets
+        const normalizedDate = normalizeDate(sheetTx.Date || sheetTx.date);
+        
         // Check if transaction already exists
         const existing = await db.getFirstAsync<{ count: number }>(
           `SELECT COUNT(*) as count FROM transactions WHERE uuid = ?;`,
           sheetTx.uuid
         );
-        
+
+        // More robust type handling
+        let transactionType = 'expense'; // default
+        if (sheetTx.Type) {
+          transactionType = sheetTx.Type.toString().toLowerCase();
+        } else if (sheetTx.type) {
+          transactionType = sheetTx.type.toString().toLowerCase();
+        }
+        // Ensure it's either 'income' or 'expense'
+        transactionType = (transactionType === 'income') ? 'income' : 'expense';
+
+        const transactionData = {
+          uuid: sheetTx.uuid,
+          type: transactionType,
+          amount: parseFloat(sheetTx.Amount || sheetTx.amount || 0),
+          category: sheetTx.Category || sheetTx.category || 'Other',
+          date: normalizedDate,
+          notes: sheetTx.Notes || sheetTx.notes || ""
+        };
+
+        // Debug log
+        console.log(`Processing transaction: ${transactionData.uuid}, Date: ${transactionData.date}, Type: ${transactionData.type}`);
+
         if (!existing || existing.count === 0) {
           // Insert new transaction
           await db.runAsync(
-            `INSERT INTO transactions (uuid, amount, category, date, notes, isSynced) VALUES (?, ?, ?, ?, ?, 1);`,
-            sheetTx.uuid, sheetTx.Amount, sheetTx.Category, sheetTx.Date, sheetTx.Notes || ''
+            `INSERT INTO transactions (uuid, type, amount, category, date, notes, isSynced) VALUES (?, ?, ?, ?, ?, ?, 1);`,
+            transactionData.uuid,
+            transactionData.type,
+            transactionData.amount,
+            transactionData.category,
+            transactionData.date,
+            transactionData.notes
           );
+          console.log(`Inserted new transaction: ${transactionData.uuid}`);
         } else {
           // Update existing transaction and mark as synced
           await db.runAsync(
-            `UPDATE transactions SET amount = ?, category = ?, date = ?, notes = ?, isSynced = 1 WHERE uuid = ?;`,
-            sheetTx.Amount, sheetTx.Category, sheetTx.Date, sheetTx.Notes || '', sheetTx.uuid
+            `UPDATE transactions SET type = ?, amount = ?, category = ?, date = ?, notes = ?, isSynced = 1 WHERE uuid = ?;`,
+            transactionData.type,
+            transactionData.amount,
+            transactionData.category,
+            transactionData.date,
+            transactionData.notes,
+            transactionData.uuid
           );
+          console.log(`Updated existing transaction: ${transactionData.uuid}`);
         }
       }
     });
@@ -213,16 +313,24 @@ export const syncData = async (): Promise<void> => {
       `${API_URL}?apiKey=${API_KEY}&action=getBudgets`,
       { timeout: 10000 }
     );
-    
+
     const sheetBudgets = budgetResponse.data.data || [];
     console.log(`Downloaded ${sheetBudgets.length} budgets from sheets`);
-    
+
     await db.withTransactionAsync(async () => {
       for (const budget of sheetBudgets) {
-        await db.runAsync(
-          `INSERT OR REPLACE INTO budgets (monthYear, amount) VALUES (?, ?);`,
-          budget.MonthYear, budget.BudgetAmount
-        );
+        // Handle both possible field names
+        const monthYear = budget.MonthYear || budget.monthYear;
+        const amount = budget.BudgetAmount || budget.amount || budget.budgetAmount;
+        
+        if (monthYear && amount !== undefined) {
+          await db.runAsync(
+            `INSERT OR REPLACE INTO budgets (monthYear, amount) VALUES (?, ?);`,
+            monthYear,
+            parseFloat(amount)
+          );
+          console.log(`Synced budget for ${monthYear}: ${amount}`);
+        }
       }
     });
 
@@ -234,13 +342,16 @@ export const syncData = async (): Promise<void> => {
 };
 
 // NEW: Function to get sync status
-export const getSyncStatus = async (): Promise<{ unsyncedCount: number; lastSync: string | null }> => {
+export const getSyncStatus = async (): Promise<{
+  unsyncedCount: number;
+  lastSync: string | null;
+}> => {
   try {
     const unsynced = await getUnsyncedTransactions();
     // You could also store last sync time in a separate table
     return {
       unsyncedCount: unsynced.length,
-      lastSync: null // Implement if you want to track last sync time
+      lastSync: null, // Implement if you want to track last sync time
     };
   } catch (error) {
     console.error("Failed to get sync status:", error);

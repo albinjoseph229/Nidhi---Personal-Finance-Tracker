@@ -1,4 +1,4 @@
-// In app/add-expense.tsx
+// In app/add-income.tsx
 
 import { Feather } from "@expo/vector-icons";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
@@ -6,23 +6,23 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  useColorScheme,
-  View,
+    ActivityIndicator, // Add this import
+    Alert,
+    FlatList, // Add this import
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput, // Add this import
+    View,
 } from "react-native";
 
 // Import themed components and hooks
 import { ThemedText } from "../components/themed-text";
 import { ThemedView } from "../components/themed-view";
 import { useAppData } from "../context/AppContext";
+import { useTheme } from "../context/ThemeContext";
 import { useThemeColor } from "../hooks/use-theme-color";
 
 interface Category {
@@ -31,22 +31,20 @@ interface Category {
   color: string;
 }
 
-const categories: Category[] = [
-  { name: "Food", icon: "coffee", color: "#FF6B6B" },
-  { name: "Transport", icon: "truck", color: "#4ECDC4" },
-  { name: "Shopping", icon: "shopping-bag", color: "#45B7D1" },
-  { name: "Bills", icon: "file-text", color: "#96CEB4" },
-  { name: "Health", icon: "heart", color: "#FECA57" },
-  { name: "Leisure", icon: "smile", color: "#FF9FF3" },
-  { name: "Home", icon: "home", color: "#54A0FF" },
-  { name: "Education", icon: "book-open", color: "#5F27CD" },
+// A new, simpler list of categories for income
+const incomeCategories: Category[] = [
+  { name: "Salary", icon: "dollar-sign", color: "#45B7D1" },
+  { name: "Freelance", icon: "briefcase", color: "#4ECDC4" },
+  { name: "Investment", icon: "trending-up", color: "#96CEB4" },
+  { name: "Gift", icon: "gift", color: "#FECA57" },
+  { name: "Rental", icon: "home", color: "#54A0FF" },
   { name: "Other", icon: "archive", color: "#00D2D3" },
 ];
 
-export default function AddExpenseScreen() {
+export default function AddIncomeScreen() {
   const router = useRouter();
   const { addTransaction } = useAppData();
-  const theme = useColorScheme() ?? 'light';
+  const { theme } = useTheme();
 
   // State
   const [amount, setAmount] = useState("");
@@ -61,6 +59,7 @@ export default function AddExpenseScreen() {
   const secondaryTextColor = useThemeColor({}, 'tabIconDefault');
   const backgroundColor = useThemeColor({}, 'background');
   const saveButtonActiveColor = theme === 'light' ? '#1C1C1E' : cardColor;
+  const saveButtonTextColor = theme === 'light' ? '#FFFFFF' : textColor;
 
   const showDatePicker = () => {
     DateTimePickerAndroid.open({
@@ -76,13 +75,13 @@ export default function AddExpenseScreen() {
       return Alert.alert("Invalid Amount", "Please enter an amount greater than zero.");
     }
     if (!selectedCategory) {
-      return Alert.alert("Select Category", "Please select a category for this expense.");
+      return Alert.alert("Select Category", "Please select a category for this income.");
     }
 
     setIsSaving(true);
     try {
       await addTransaction({
-        type: 'expense',
+        type: 'income',
         amount: numericAmount,
         category: selectedCategory,
         date: date.toISOString(),
@@ -90,8 +89,8 @@ export default function AddExpenseScreen() {
       });
       router.back();
     } catch (error) {
-      console.error("Failed to save expense:", error);
-      Alert.alert("Error", "Could not save expense.");
+      console.error("Failed to save income:", error);
+      Alert.alert("Error", "Could not save income.");
     } finally {
       setIsSaving(false);
     }
@@ -104,18 +103,14 @@ export default function AddExpenseScreen() {
         style={{flex: 1}} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Header */}
         <View style={styles.header}>
-          <ThemedText style={styles.headerTitle}>Add Expense</ThemedText>
+          <ThemedText style={styles.headerTitle}>Add Income</ThemedText>
           <Pressable onPress={() => router.back()} style={styles.closeButton}>
               <Feather name="x" size={24} color={textColor} />
           </Pressable>
         </View>
 
-        <ScrollView 
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           {/* Amount Input Card */}
           <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
             <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Amount</ThemedText>
@@ -135,9 +130,9 @@ export default function AddExpenseScreen() {
 
           {/* Category Selection */}
           <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
-            <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Category</ThemedText>
+            <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Source</ThemedText>
             <FlatList
-              data={categories}
+              data={incomeCategories}
               numColumns={3}
               scrollEnabled={false}
               keyExtractor={(item) => item.name}
@@ -162,7 +157,6 @@ export default function AddExpenseScreen() {
           {/* Details Card */}
           <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
             <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Details</ThemedText>
-            
             <Pressable style={[styles.detailItem, { borderBottomColor: backgroundColor }]} onPress={showDatePicker}>
               <ThemedView style={[styles.detailIconContainer, { backgroundColor: backgroundColor }]}>
                 <Feather name="calendar" size={20} color="#3478F6" />
@@ -175,7 +169,6 @@ export default function AddExpenseScreen() {
               </View>
               <Feather name="chevron-right" size={16} color={secondaryTextColor} />
             </Pressable>
-
             <View style={[styles.detailItem, { borderBottomWidth: 0 }]}>
               <ThemedView style={[styles.detailIconContainer, { backgroundColor: backgroundColor }]}>
                 <Feather name="edit-3" size={20} color="#34C759" />
@@ -202,7 +195,7 @@ export default function AddExpenseScreen() {
               {isSaving ? (
                 <ActivityIndicator color={theme === 'light' ? 'white' : textColor} />
               ) : (
-                <ThemedText style={[styles.saveButtonText, { color: theme === 'light' ? 'white' : textColor }]}>Save Expense</ThemedText>
+                <ThemedText style={[styles.saveButtonText, { color: saveButtonTextColor }]}>Save Income</ThemedText>
               )}
             </Pressable>
           </View>
@@ -212,6 +205,7 @@ export default function AddExpenseScreen() {
   );
 }
 
+// You can copy the exact same StyleSheet from your `add-expense.tsx` file
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
@@ -312,6 +306,7 @@ const styles = StyleSheet.create({
   saveButtonContainer: {
     paddingHorizontal: 20,
     marginTop: 10,
+    marginBottom: 20,
   },
   saveButton: {
     borderRadius: 16,

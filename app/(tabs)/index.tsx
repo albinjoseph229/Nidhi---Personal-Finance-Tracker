@@ -6,234 +6,438 @@ import { StatusBar } from "expo-status-bar";
 import React, { useMemo } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  useColorScheme,
   View,
 } from "react-native";
 
-// Import your themed components and hooks
+// Import themed components and hooks
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
 import { useAppData } from "../../context/AppContext";
+import { useTheme } from "../../context/ThemeContext";
 import { useThemeColor } from "../../hooks/use-theme-color";
 
-const weeklySpendData = [
-  { day: 'Sun', amount: 30 }, { day: 'Mon', amount: 50 }, { day: 'Tue', amount: 90 },
-  { day: 'Wed', amount: 45 }, { day: 'Thu', amount: 110 }, { day: 'Fri', amount: 75 },
-  { day: 'Sat', amount: 40 },
-];
+interface WeeklyDataPoint {
+  day: string;
+  amount: number;
+  date: string;
+}
 
 export default function HomeScreen() {
-  const router = useRouter(); // Initialize router
+  const router = useRouter();
   const { transactions, budgets, isSyncing, triggerFullSync } = useAppData();
-  const theme = useColorScheme() ?? 'light';
+  const { theme } = useTheme();
 
-  // Fetch all necessary colors from the theme once
-  const cardColor = useThemeColor({}, 'card');
-  const textColor = useThemeColor({}, 'text');
-  const secondaryTextColor = useThemeColor({}, 'tabIconDefault');
-  const separatorColor = useThemeColor({}, 'background');
-  
-  const { monthlyTotal, budgetLeft, recentTransactions } = useMemo(() => {
+  const cardColor = useThemeColor({}, "card");
+  const textColor = useThemeColor({}, "text");
+  const secondaryTextColor = useThemeColor({}, "tabIconDefault");
+  const separatorColor = useThemeColor({}, "background");
+
+  const {
+    totalIncome,
+    totalExpenses,
+    savings,
+    budgetLeft,
+    recentTransactions,
+    dynamicWeeklyData,
+  } = useMemo(() => {
     const today = new Date();
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
-    const transactionsThisMonth = transactions.filter(tx => {
-      const txDate = new Date(tx.date);
-      return txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear;
+
+    // Enhanced date parsing with better error handling
+    const parseTransactionDate = (dateStr: string): Date => {
+      // Handle different date formats that might come from Google Sheets
+      let date: Date;
+
+      if (dateStr.includes("T")) {
+        // ISO format (what we send)
+        date = new Date(dateStr);
+      } else if (dateStr.includes("/")) {
+        // Possible MM/DD/YYYY format from sheets
+        date = new Date(dateStr);
+      } else if (dateStr.includes("-")) {
+        // YYYY-MM-DD format
+        date = new Date(dateStr + "T00:00:00.000Z");
+      } else {
+        // Fallback
+        date = new Date(dateStr);
+      }
+
+      // If date is invalid, use current date as fallback
+      if (isNaN(date.getTime())) {
+        console.warn(`Invalid date format: ${dateStr}, using current date`);
+        date = new Date();
+      }
+
+      return date;
+    };
+
+    const transactionsThisMonth = transactions.filter((tx) => {
+      try {
+        const txDate = parseTransactionDate(tx.date);
+        const isCurrentMonth = txDate.getMonth() === currentMonth;
+        const isCurrentYear = txDate.getFullYear() === currentYear;
+
+        // Debug logging - remove after fixing
+        if (!isCurrentMonth || !isCurrentYear) {
+          console.log(
+            `Transaction filtered out: ${tx.category}, Date: ${
+              tx.date
+            }, Parsed: ${txDate.toISOString()}, Current: ${today.toISOString()}`
+          );
+        }
+
+        return isCurrentMonth && isCurrentYear;
+      } catch (error) {
+        console.error(`Error parsing transaction date: ${tx.date}`, error);
+        return false;
+      }
     });
-    const total = transactionsThisMonth.reduce((sum, tx) => sum + tx.amount, 0);
-    const currentMonthYear = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-    const budget = budgets.find(b => b.monthYear === currentMonthYear);
+
+    // Debug logging - remove after fixing
+    console.log(
+      `Found ${transactionsThisMonth.length} transactions for current month out of ${transactions.length} total`
+    );
+
+    const income = transactionsThisMonth
+      .filter((tx) => tx.type === "income")
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    const expenses = transactionsThisMonth
+      .filter((tx) => tx.type === "expense")
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    const recent = transactions
+      .sort((a, b) => {
+        const dateA = parseTransactionDate(a.date);
+        const dateB = parseTransactionDate(b.date);
+        return dateB.getTime() - dateA.getTime();
+      })
+      .slice(0, 3);
+
+    const currentMonthYear = `${currentYear}-${String(
+      currentMonth + 1
+    ).padStart(2, "0")}`;
+    const budget = budgets.find((b) => b.monthYear === currentMonthYear);
     const budgetAmount = budget?.amount || 0;
-    const recent = transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 3);
+
+    // Weekly data logic (also fix date parsing here)
+    const weekData: WeeklyDataPoint[] = [];
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      weekData.push({
+        day: days[d.getDay()],
+        amount: 0,
+        date: d.toISOString().split("T")[0],
+      });
+    }
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const weeklyTransactions = transactions.filter((tx) => {
+      try {
+        const txDate = parseTransactionDate(tx.date);
+        return tx.type === "expense" && txDate >= sevenDaysAgo;
+      } catch (error) {
+        console.error(
+          `Error parsing weekly transaction date: ${tx.date}`,
+          error
+        );
+        return false;
+      }
+    });
+
+    // Use a map for efficient summing
+    const dailyTotals: { [key: string]: number } = {};
+    weeklyTransactions.forEach((tx) => {
+      try {
+        const txDate = parseTransactionDate(tx.date);
+        const dateKey = txDate.toISOString().split("T")[0];
+        dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + tx.amount;
+      } catch (error) {
+        console.error(`Error processing weekly transaction: ${tx.date}`, error);
+      }
+    });
+
+    weekData.forEach((dayData) => {
+      if (dailyTotals[dayData.date]) {
+        dayData.amount = dailyTotals[dayData.date];
+      }
+    });
+
     return {
-      monthlyTotal: total,
-      budgetLeft: budgetAmount - total,
+      totalIncome: income,
+      totalExpenses: expenses,
+      savings: income - expenses,
+      budgetLeft: budgetAmount - expenses,
       recentTransactions: recent,
+      dynamicWeeklyData: weekData,
     };
   }, [transactions, budgets]);
 
   const onRefresh = async () => {
     await triggerFullSync();
   };
-  
+
   const formatAmount = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(amount).replace('₹', '₹ ');
+    })
+      .format(amount)
+      .replace("₹", "₹ ");
   };
 
   const getCategoryIcon = (category: string) => {
     const categoryLower = category.toLowerCase();
-    if (categoryLower.includes('food')) return 'shopping-bag';
-    if (categoryLower.includes('transport')) return 'truck';
-    if (categoryLower.includes('shopping')) return 'shopping-cart';
-    if (categoryLower.includes('entertainment')) return 'film';
-    if (categoryLower.includes('health')) return 'heart';
-    if (categoryLower.includes('bill')) return 'file-text';
-    return 'trending-down';
+    if (categoryLower.includes("food")) return "shopping-bag";
+    if (categoryLower.includes("transport")) return "truck";
+    if (categoryLower.includes("shopping")) return "shopping-cart";
+    if (categoryLower.includes("entertainment")) return "film";
+    if (categoryLower.includes("health")) return "heart";
+    if (categoryLower.includes("bill")) return "file-text";
+    if (categoryLower.includes("salary")) return "dollar-sign";
+    if (categoryLower.includes("freelance")) return "briefcase";
+    if (categoryLower.includes("investment")) return "trending-up";
+    if (categoryLower.includes("gift")) return "gift";
+    return "trending-down";
   };
 
   if (isSyncing && transactions.length === 0) {
     return (
       <ThemedView style={styles.loaderContainer}>
         <ActivityIndicator size="large" color={textColor} />
-        <ThemedText style={styles.loadingText}>Loading your data...</ThemedText>
+        <ThemedText>Loading your data...</ThemedText>
       </ThemedView>
     );
   }
 
   return (
     <ThemedView style={styles.container}>
-      <StatusBar style={theme === 'light' ? 'dark' : 'light'} />
-
+      <StatusBar style={theme === "light" ? "dark" : "light"} />
       <ScrollView
         contentContainerStyle={styles.contentContainer}
         refreshControl={
-          <RefreshControl refreshing={isSyncing} onRefresh={onRefresh} tintColor={textColor} />
+          <RefreshControl
+            refreshing={isSyncing}
+            onRefresh={onRefresh}
+            tintColor={textColor}
+          />
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Custom Header */}
         <View style={styles.header}>
           <ThemedText style={styles.headerTitle}>Home</ThemedText>
-          <Feather name="bell" size={24} color={textColor} />
         </View>
 
-        {/* Main Spend Card */}
-        <ThemedView style={[styles.spendCard, { backgroundColor: cardColor, shadowColor: textColor }]}>
-          <ThemedText style={[styles.spendCardLabel, { color: secondaryTextColor }]}>This month spend</ThemedText>
-          <ThemedText style={styles.spendCardAmount}>{formatAmount(monthlyTotal)}</ThemedText>
+        {/* Financial Summary Card */}
+        <ThemedView
+          style={[
+            styles.summaryCard,
+            { backgroundColor: cardColor, shadowColor: textColor },
+          ]}
+        >
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryItem}>
+              <ThemedText
+                style={[styles.summaryLabel, { color: secondaryTextColor }]}
+              >
+                Income
+              </ThemedText>
+              <ThemedText style={[styles.summaryAmount, { color: "#34C759" }]}>
+                {formatAmount(totalIncome)}
+              </ThemedText>
+            </View>
+            <View style={styles.summaryItem}>
+              <ThemedText
+                style={[styles.summaryLabel, { color: secondaryTextColor }]}
+              >
+                Expenses
+              </ThemedText>
+              <ThemedText style={[styles.summaryAmount, { color: "#FF3B30" }]}>
+                {formatAmount(totalExpenses)}
+              </ThemedText>
+            </View>
+          </View>
+          <View style={[styles.savingsRow, { borderTopColor: separatorColor }]}>
+            <ThemedText
+              style={[styles.savingsLabel, { color: secondaryTextColor }]}
+            >
+              Savings This Month
+            </ThemedText>
+            <ThemedText style={styles.savingsAmount}>
+              {formatAmount(savings)}
+            </ThemedText>
+          </View>
         </ThemedView>
 
         {/* Analytics Card */}
-        <ThemedView lightColor="#1C1C1E" darkColor={cardColor} style={[styles.analyticsCard, { shadowColor: textColor }]}>
+        <ThemedView
+          lightColor="#1C1C1E"
+          darkColor={cardColor}
+          style={[styles.analyticsCard, { shadowColor: textColor }]}
+        >
           <View style={styles.analyticsHeader}>
-            <ThemedText lightColor="#FFFFFF" darkColor={textColor} style={styles.analyticsTitle}>Analytics</ThemedText>
-            
+            <ThemedText
+              lightColor="#FFFFFF"
+              darkColor={textColor}
+              style={styles.analyticsTitle}
+            >
+              Weekly Spend
+            </ThemedText>
             {budgetLeft < 0 ? (
               <View style={styles.overBudgetTag}>
-                <ThemedText lightColor="#FFFFFF" darkColor={textColor} style={styles.overBudgetText}>
+                <ThemedText
+                  lightColor="#FFFFFF"
+                  darkColor={textColor}
+                  style={styles.overBudgetText}
+                >
                   {formatAmount(Math.abs(budgetLeft))} over
                 </ThemedText>
               </View>
             ) : (
-              <ThemedText style={[styles.analyticsMonth, { color: secondaryTextColor }]}>This month</ThemedText>
+              <ThemedText
+                style={[styles.analyticsMonth, { color: secondaryTextColor }]}
+              >
+                This month
+              </ThemedText>
             )}
           </View>
-          
           <View style={styles.chartContainer}>
-            {weeklySpendData.map((item, index) => {
-                const maxAmount = Math.max(...weeklySpendData.map(d => d.amount), 1);
-                const barHeight = (item.amount / maxAmount) * 80;
-                return (
-                  <View key={index} style={styles.barWrapper}>
-                    <View style={[styles.bar, { height: barHeight }]} />
-                    <ThemedText style={[styles.barLabel, { color: secondaryTextColor }]}>{item.day}</ThemedText>
-                  </View>
-                );
+            {/* ✅ FIX 2: Use a stable, unique key instead of index */}
+            {dynamicWeeklyData.map((item) => {
+              const maxAmount = Math.max(
+                ...dynamicWeeklyData.map((d) => d.amount),
+                1
+              );
+              const barHeight = (item.amount / maxAmount) * 80;
+              return (
+                <View key={item.date} style={styles.barWrapper}>
+                  <View style={[styles.bar, { height: barHeight }]} />
+                  <ThemedText
+                    style={[styles.barLabel, { color: secondaryTextColor }]}
+                  >
+                    {item.day}
+                  </ThemedText>
+                </View>
+              );
             })}
           </View>
         </ThemedView>
 
-        {/* Upcoming / Recent Transactions */}
-        <ThemedView style={[styles.upcomingSection, { backgroundColor: cardColor, shadowColor: textColor }]}>
+        {/* Recent Transactions */}
+        <ThemedView
+          style={[
+            styles.upcomingSection,
+            { backgroundColor: cardColor, shadowColor: textColor },
+          ]}
+        >
           <View style={styles.upcomingHeader}>
             <ThemedText style={styles.upcomingTitle}>Recent</ThemedText>
             <Link href="/history" asChild>
               <ThemedText style={styles.seeAllText}>See All</ThemedText>
             </Link>
           </View>
-
           {recentTransactions.length > 0 ? (
             recentTransactions.map((tx) => (
-              <View key={tx.uuid} style={[styles.transactionItem, { borderBottomColor: separatorColor }]}>
+              <View
+                key={tx.uuid}
+                style={[
+                  styles.transactionItem,
+                  { borderBottomColor: separatorColor },
+                ]}
+              >
                 <ThemedView style={styles.transactionIconContainer}>
-                  <Feather name={getCategoryIcon(tx.category)} size={20} color={textColor} />
+                  <Feather
+                    name={getCategoryIcon(tx.category)}
+                    size={20}
+                    color={tx.type === "income" ? "#34C759" : textColor}
+                  />
                 </ThemedView>
                 <View style={styles.transactionDetails}>
-                  <ThemedText style={styles.transactionName}>{tx.category}</ThemedText>
-                  <ThemedText style={[styles.transactionInfo, { color: secondaryTextColor }]}>
-                    {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  <ThemedText style={styles.transactionName}>
+                    {tx.category}
+                  </ThemedText>
+                  <ThemedText
+                    style={[
+                      styles.transactionInfo,
+                      { color: secondaryTextColor },
+                    ]}
+                  >
+                    {new Date(tx.date).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                    })}
                   </ThemedText>
                 </View>
-                <ThemedText style={styles.transactionAmount}>
+                <ThemedText
+                  style={[
+                    styles.transactionAmount,
+                    { color: tx.type === "income" ? "#34C759" : textColor },
+                  ]}
+                >
                   {formatAmount(tx.amount)}
                 </ThemedText>
               </View>
             ))
           ) : (
-            <ThemedText style={[styles.noTransactionsText, { color: secondaryTextColor }]}>No recent transactions.</ThemedText>
+            <ThemedText
+              style={[styles.noTransactionsText, { color: secondaryTextColor }]}
+            >
+              No recent transactions.
+            </ThemedText>
           )}
         </ThemedView>
       </ScrollView>
-
-      {/* Floating Action Button (FAB) */}
-      <Pressable 
-        style={[styles.fab, { backgroundColor: theme === 'light' ? '#1C1C1E' : cardColor, shadowColor: textColor }]}
-        onPress={() => router.push('/add-expense')}
-      >
-        <Feather name="plus" size={24} color={theme === 'light' ? 'white' : textColor} />
-      </Pressable>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   contentContainer: {
-    paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 100,
+    paddingHorizontal: 20,
   },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-  },
+  loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingTop: 30,
     marginBottom: 20,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  spendCard: {
+  headerTitle: { fontSize: 28, fontWeight: "bold" },
+  summaryCard: {
     borderRadius: 20,
     padding: 24,
     marginBottom: 20,
-    alignItems: 'center',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 12,
     elevation: 2,
   },
-  spendCardLabel: {
-    fontSize: 16,
-    marginBottom: 8,
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 20,
   },
-  spendCardAmount: {
-    fontSize: 40,
-    fontWeight: 'bold',
-    lineHeight: 48,
-  },
+  summaryItem: { alignItems: "center", flex: 1 },
+  summaryLabel: { fontSize: 14, marginBottom: 4 },
+  summaryAmount: { fontSize: 22, fontWeight: "600" },
+  savingsRow: { borderTopWidth: 1, paddingTop: 16, alignItems: "center" },
+  savingsLabel: { fontSize: 16, fontWeight: "500" },
+  savingsAmount: { fontSize: 28, fontWeight: "bold", marginTop: 4 },
   analyticsCard: {
     borderRadius: 20,
     padding: 24,
@@ -244,46 +448,29 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   analyticsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16, // Added margin to space out from the chart
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
   },
-  analyticsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  analyticsMonth: {
-    fontSize: 14,
-  },
+  analyticsTitle: { fontSize: 18, fontWeight: "600" },
+  analyticsMonth: { fontSize: 14 },
   overBudgetTag: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: "#FF3B30",
     borderRadius: 8,
     paddingVertical: 4,
     paddingHorizontal: 12,
   },
-  overBudgetText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
+  overBudgetText: { fontSize: 12, fontWeight: "600" },
   chartContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "flex-end",
     height: 100,
   },
-  barWrapper: {
-    alignItems: 'center',
-  },
-  bar: {
-    width: 12,
-    backgroundColor: '#8E8E93',
-    borderRadius: 6,
-  },
-  barLabel: {
-    marginTop: 8,
-    fontSize: 12,
-  },
+  barWrapper: { alignItems: "center" },
+  bar: { width: 12, backgroundColor: "#8E8E93", borderRadius: 6 },
+  barLabel: { marginTop: 8, fontSize: 12 },
   upcomingSection: {
     borderRadius: 20,
     padding: 24,
@@ -293,23 +480,16 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   upcomingHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
-  upcomingTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  seeAllText: {
-    fontSize: 14,
-    color: '#007AFF',
-    fontWeight: '500',
-  },
+  upcomingTitle: { fontSize: 18, fontWeight: "600" },
+  seeAllText: { fontSize: 14, color: "#007AFF", fontWeight: "500" },
   transactionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
@@ -317,41 +497,13 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 16,
   },
-  transactionDetails: {
-    flex: 1,
-  },
-  transactionName: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  transactionInfo: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  transactionAmount: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  noTransactionsText: {
-    textAlign: 'center',
-    paddingVertical: 20,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 90,
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 8,
-  },
+  transactionDetails: { flex: 1 },
+  transactionName: { fontSize: 16, fontWeight: "500" },
+  transactionInfo: { fontSize: 14, marginTop: 2 },
+  transactionAmount: { fontSize: 16, fontWeight: "600" },
+  noTransactionsText: { textAlign: "center", paddingVertical: 20 },
 });
