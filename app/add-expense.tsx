@@ -6,36 +6,38 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { useAppData } from "../context/AppContext"; // Import the context hook
+import { useAppData } from "../context/AppContext";
 
-// Define the structure for a category
 interface Category {
   name: string;
   icon: React.ComponentProps<typeof FontAwesome>["name"];
+  color: string;
 }
 
-// List of available categories
 const categories: Category[] = [
-  { name: "Food", icon: "cutlery" },
-  { name: "Transport", icon: "car" },
-  { name: "Shopping", icon: "shopping-bag" },
-  { name: "Bills", icon: "file-text-o" },
-  { name: "Health", icon: "heartbeat" },
-  { name: "Leisure", icon: "smile-o" },
-  { name: "Home", icon: "home" },
-  { name: "Education", icon: "book" },
-  { name: "Other", icon: "inbox" },
+  { name: "Food", icon: "cutlery", color: "#FF6B6B" },
+  { name: "Transport", icon: "car", color: "#4ECDC4" },
+  { name: "Shopping", icon: "shopping-bag", color: "#45B7D1" },
+  { name: "Bills", icon: "file-text-o", color: "#96CEB4" },
+  { name: "Health", icon: "heartbeat", color: "#FECA57" },
+  { name: "Leisure", icon: "smile-o", color: "#FF9FF3" },
+  { name: "Home", icon: "home", color: "#54A0FF" },
+  { name: "Education", icon: "book", color: "#5F27CD" },
+  { name: "Other", icon: "inbox", color: "#00D2D3" },
 ];
 
 export default function AddExpenseScreen() {
   const router = useRouter();
-  const { addTransaction } = useAppData(); // Get the new function from context
+  const { addTransaction } = useAppData();
 
   const [amount, setAmount] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -66,7 +68,6 @@ export default function AddExpenseScreen() {
     setIsSaving(true);
 
     try {
-      // Call the context function, which handles saving, refreshing, and syncing
       await addTransaction({
         amount: numericAmount,
         category: selectedCategory,
@@ -83,133 +84,465 @@ export default function AddExpenseScreen() {
     }
   };
 
+  const getSelectedCategoryColor = () => {
+    const category = categories.find(c => c.name === selectedCategory);
+    return category?.color || "#007AFF";
+  };
+
+  const formatAmount = (value: string) => {
+    if (!value) return "";
+    const numericValue = parseFloat(value);
+    if (isNaN(numericValue)) return value;
+    return new Intl.NumberFormat('en-IN').format(numericValue);
+  };
+
   return (
-    <View style={styles.container}>
-      <View style={styles.amountContainer}>
-        <Text style={styles.currencySymbol}>₹</Text>
-        <TextInput
-          style={styles.amountInput}
-          placeholder="0.00"
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="numeric"
-          autoFocus={true}
-        />
-      </View>
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Add Expense</Text>
+          <Text style={styles.headerSubtitle}>Track your spending</Text>
+        </View>
 
-      <Text style={styles.sectionTitle}>Category</Text>
-      <FlatList
-        data={categories}
-        numColumns={3}
-        scrollEnabled={false}
-        keyExtractor={(item) => item.name}
-        renderItem={({ item }) => {
-          const isSelected = selectedCategory === item.name;
-          return (
-            <Pressable
-              style={[styles.categoryButton, isSelected && styles.selectedCategory]}
-              onPress={() => setSelectedCategory(item.name)}
-            >
-              <FontAwesome
-                name={item.icon}
-                size={24}
-                color={isSelected ? "white" : "#333"}
-              />
-              <Text style={[styles.categoryText, isSelected && { color: "white" }]}>
-                {item.name}
-              </Text>
-            </Pressable>
-          );
-        }}
-        contentContainerStyle={styles.categoryList}
-      />
+        {/* Amount Input Card */}
+        <View style={styles.amountCard}>
+          <Text style={styles.amountLabel}>Amount</Text>
+          <View style={styles.amountContainer}>
+            <Text style={styles.currencySymbol}>₹</Text>
+            <TextInput
+              style={styles.amountInput}
+              placeholder="0"
+              placeholderTextColor="#C7C7CC"
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="numeric"
+              autoFocus={true}
+              returnKeyType="done"
+            />
+          </View>
+          {amount && !isNaN(parseFloat(amount)) && (
+            <Text style={styles.formattedAmount}>
+              {formatAmount(amount)}
+            </Text>
+          )}
+        </View>
 
-      <Text style={styles.sectionTitle}>Details</Text>
-      <View style={styles.detailsContainer}>
-        <Pressable style={styles.detailItem} onPress={showDatePicker}>
-          <FontAwesome name="calendar" size={24} color="#555" />
-          <Text style={styles.detailText}>{date.toLocaleDateString("en-GB")}</Text>
-        </Pressable>
-        <View style={styles.detailItem}>
-          <FontAwesome name="pencil" size={24} color="#555" />
-          <TextInput
-            style={styles.notesInput}
-            placeholder="Add a note..."
-            value={notes}
-            onChangeText={setNotes}
+        {/* Category Selection */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Category</Text>
+          <FlatList
+            data={categories}
+            numColumns={3}
+            scrollEnabled={false}
+            keyExtractor={(item) => item.name}
+            renderItem={({ item }) => {
+              const isSelected = selectedCategory === item.name;
+              return (
+                <Pressable
+                  style={[
+                    styles.categoryButton,
+                    isSelected && { 
+                      backgroundColor: item.color,
+                      transform: [{ scale: 0.95 }] 
+                    }
+                  ]}
+                  onPress={() => setSelectedCategory(item.name)}
+                >
+                  <View style={[
+                    styles.categoryIconContainer,
+                    { backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : item.color + '20' }
+                  ]}>
+                    <FontAwesome
+                      name={item.icon}
+                      size={16}
+                      color={isSelected ? "white" : item.color}
+                    />
+                  </View>
+                  <Text style={[
+                    styles.categoryText, 
+                    { color: isSelected ? "white" : "#1D1D1F" }
+                  ]}>
+                    {item.name}
+                  </Text>
+                </Pressable>
+              );
+            }}
+            contentContainerStyle={styles.categoryGrid}
           />
         </View>
-      </View>
 
-      <Pressable style={styles.fab} onPress={handleSave} disabled={isSaving}>
-        {isSaving ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <FontAwesome name="check" size={24} color="white" />
+        {/* Details Card */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Details</Text>
+          
+          {/* Date Picker */}
+          <Pressable style={styles.detailItem} onPress={showDatePicker}>
+            <View style={styles.detailIconContainer}>
+              <FontAwesome name="calendar" size={16} color="#007AFF" />
+            </View>
+            <View style={styles.detailContent}>
+              <Text style={styles.detailLabel}>Date</Text>
+              <Text style={styles.detailValue}>
+                {date.toLocaleDateString("en-IN", { 
+                  weekday: 'short',
+                  year: 'numeric', 
+                  month: 'short', 
+                  day: 'numeric' 
+                })}
+              </Text>
+            </View>
+            <FontAwesome name="chevron-right" size={12} color="#C7C7CC" />
+          </Pressable>
+
+          {/* Notes Input */}
+          <View style={styles.detailItem}>
+            <View style={styles.detailIconContainer}>
+              <FontAwesome name="pencil" size={16} color="#34C759" />
+            </View>
+            <View style={styles.detailContent}>
+              <Text style={styles.detailLabel}>Notes</Text>
+              <TextInput
+                style={styles.notesInput}
+                placeholder="Add a note (optional)"
+                placeholderTextColor="#C7C7CC"
+                value={notes}
+                onChangeText={setNotes}
+                multiline={true}
+                returnKeyType="done"
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Summary Card */}
+        {amount && selectedCategory && (
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>Summary</Text>
+            <View style={styles.summaryContent}>
+              <View style={[
+                styles.summaryIcon, 
+                { backgroundColor: getSelectedCategoryColor() + '20' }
+              ]}>
+                <FontAwesome 
+                  name={categories.find(c => c.name === selectedCategory)?.icon || 'money'} 
+                  size={20} 
+                  color={getSelectedCategoryColor()} 
+                />
+              </View>
+              <View style={styles.summaryDetails}>
+                <Text style={styles.summaryAmount}>
+                  ₹{parseFloat(amount).toLocaleString('en-IN')}
+                </Text>
+                <Text style={styles.summaryCategory}>{selectedCategory}</Text>
+                {notes && <Text style={styles.summaryNotes}>{notes}</Text>}
+              </View>
+            </View>
+          </View>
         )}
-      </Pressable>
-    </View>
+      </ScrollView>
+
+      {/* Save Button */}
+      <View style={styles.bottomContainer}>
+        <Pressable 
+          style={[
+            styles.saveButton,
+            (!amount || !selectedCategory || isSaving) && styles.saveButtonDisabled
+          ]} 
+          onPress={handleSave} 
+          disabled={!amount || !selectedCategory || isSaving}
+        >
+          {isSaving ? (
+            <ActivityIndicator color="white" size="small" />
+          ) : (
+            <>
+              <FontAwesome name="check" size={16} color="white" />
+              <Text style={styles.saveButtonText}>Save Expense</Text>
+            </>
+          )}
+        </Pressable>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5", padding: 20 },
+  container: { 
+    flex: 1, 
+    backgroundColor: "#F8F9FA" 
+  },
+  scrollContent: {
+    paddingBottom: 100,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
+    backgroundColor: "white",
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1D1D1F',
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#8E8E93',
+    fontWeight: '500',
+  },
+  amountCard: {
+    backgroundColor: "white",
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  amountLabel: {
+    fontSize: 14,
+    color: '#8E8E93',
+    fontWeight: '500',
+    marginBottom: 8,
+  },
   amountContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 20,
   },
-  currencySymbol: { fontSize: 40, fontWeight: "300", marginRight: 5 },
-  amountInput: { fontSize: 60, fontWeight: "bold" },
+  currencySymbol: { 
+    fontSize: 32, 
+    fontWeight: "300", 
+    color: '#1D1D1F',
+    marginRight: 8 
+  },
+  amountInput: { 
+    fontSize: 48, 
+    fontWeight: "700",
+    color: '#1D1D1F',
+    textAlign: 'center',
+    minWidth: 100,
+  },
+  formattedAmount: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginTop: 8,
+    fontWeight: '500',
+  },
+  sectionCard: {
+    backgroundColor: "white",
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 16,
+    padding: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#555",
-    marginBottom: 10,
-    marginTop: 20,
+    color: "#1D1D1F",
+    marginBottom: 16,
   },
-  categoryList: { alignItems: "center" },
+  categoryGrid: { 
+    justifyContent: 'center',
+  },
   categoryButton: {
-    width: 100,
-    height: 80,
-    borderRadius: 10,
-    backgroundColor: "white",
+    width: 90,
+    height: 90,
+    borderRadius: 16,
+    backgroundColor: "#F8F9FA",
     justifyContent: "center",
     alignItems: "center",
-    margin: 8,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
+    margin: 6,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  selectedCategory: { backgroundColor: "#4CAF50" },
-  categoryText: { marginTop: 5, fontSize: 12, color: "#333" },
-  detailsContainer: {
-    backgroundColor: "white",
-    borderRadius: 10,
-    padding: 10,
-    elevation: 2,
+  categoryIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  categoryText: { 
+    fontSize: 11, 
+    fontWeight: '600',
+    textAlign: 'center',
   },
   detailItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 15,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: "#F2F2F7",
   },
-  detailText: { fontSize: 16, marginLeft: 15 },
-  notesInput: { fontSize: 16, marginLeft: 15, flex: 1 },
-  fab: {
-    position: "absolute",
-    bottom: 30,
-    right: 30,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#4CAF50",
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 8,
+  detailIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F2F2F7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  detailContent: {
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: '#8E8E93',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  detailValue: { 
+    fontSize: 16, 
+    color: '#1D1D1F',
+    fontWeight: '500',
+  },
+  notesInput: { 
+    fontSize: 16, 
+    color: '#1D1D1F',
+    fontWeight: '500',
+    paddingVertical: 4,
+  },
+  summaryCard: {
+    backgroundColor: "white",
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: '#007AFF20',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#007AFF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#007AFF",
+    marginBottom: 12,
+  },
+  summaryContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  summaryIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  summaryDetails: {
+    flex: 1,
+  },
+  summaryAmount: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1D1D1F',
+    marginBottom: 4,
+  },
+  summaryCategory: {
+    fontSize: 16,
+    color: '#8E8E93',
+    fontWeight: '500',
+  },
+  summaryNotes: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  bottomContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  saveButton: {
+    backgroundColor: "#007AFF",
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  saveButtonDisabled: {
+    backgroundColor: "#C7C7CC",
+  },
+  saveButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
