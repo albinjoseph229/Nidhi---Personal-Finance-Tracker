@@ -711,7 +711,6 @@ export default function ReportsScreen() {
   );
 }
 
-// Styles are now mostly for layout and typography
 const styles = StyleSheet.create({
   container: { flex: 1 },
   contentContainer: { paddingBottom: 100 },
@@ -783,7 +782,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   categoryDot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
-  categoryName: { flex: 1, fontSize: 15, fontWeight: "500" },
+  // ✅ FIX: Added marginRight to prevent the amount from crushing the name
+  categoryName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "500",
+    marginRight: 8, // This ensures space between name and amount
+  },
   categoryAmount: { fontSize: 15, fontWeight: "500" },
   chartHeader: {
     flexDirection: "row",
@@ -792,13 +797,10 @@ const styles = StyleSheet.create({
   },
   chartTypeSelector: { flexDirection: "row", gap: 16, marginBottom: 16 },
   chartContainer: { alignItems: "center", marginTop: 16 },
-  // Fixed pie chart container for proper positioning
   pieChartContainer: { 
     width: '100%',
-    alignItems: 'flex-end',
-    paddingLeft: 40,
+    alignItems: 'center',
   },
-  // Updated bar chart styles
   barChartScrollContainer: {
     paddingHorizontal: 10,
   },

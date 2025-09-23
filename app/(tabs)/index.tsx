@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
   },
-  upcomingTitle: { fontSize: 18, fontWeight: "600" },
+  upcomingTitle: { fontSize: 18,flex: 1, fontWeight: "600" },
   seeAllText: { fontSize: 14, color: "#007AFF", fontWeight: "500" },
   transactionItem: {
     flexDirection: "row",

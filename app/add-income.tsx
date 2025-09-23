@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   currencySymbol: { fontSize: 32, fontWeight: "600", marginRight: 8, marginTop: 12 },
   amountInput: { fontSize: 64, fontWeight: "400", flex: 1 },
   categoryButton: { width: '30%', aspectRatio: 1, borderRadius: 16, justifyContent: "center", alignItems: "center", marginBottom: 12, padding: 8 },
-  categoryText: { fontSize: 13, fontWeight: '600', marginTop: 8 },
+  categoryText: { fontSize: 13, fontWeight: '600', marginTop: 8 ,textAlign: 'center',},
   detailItem: { flexDirection: "row", alignItems: "center", paddingVertical: 16, borderBottomWidth: 1 },
   detailIconContainer: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
   detailContent: { flex: 1 },

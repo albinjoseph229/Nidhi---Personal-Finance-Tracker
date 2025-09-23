@@ -209,29 +209,118 @@ export default function HistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 10 },
-  headerTitle: { fontSize: 28, fontWeight: 'bold' },
-  listContentContainer: { paddingHorizontal: 20, paddingBottom: 100 },
-  searchContainer: { marginBottom: 20 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderBottomWidth: 1 },
-  sectionHeaderLeft: { flex: 1 },
-  sectionHeaderRight: { marginRight: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '600' },
-  sectionSubTitle: { fontSize: 12, marginTop: 2 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', width: 140 },
-  summaryLabel: { fontSize: 12 },
-  summaryValue: { fontSize: 12, fontWeight: '500' },
-  summaryLabelBold: { fontWeight: 'bold' },
-  summaryValueBold: { fontWeight: 'bold' },
+  header: {
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 10
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold'
+  },
+  listContentContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 100
+  },
+  searchContainer: {
+    marginBottom: 20
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderBottomWidth: 1
+  },
+  sectionHeaderLeft: {
+    flex: 1
+  },
+  sectionHeaderRight: {
+    marginRight: 16
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  sectionSubTitle: {
+    fontSize: 12,
+    marginTop: 2
+  },
+  // ✅ FIX: Removed fixed width to allow content to fit
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center', // Added for better vertical alignment
+  },
+  // ✨ IMPROVEMENT: Added margin for spacing
+  summaryLabel: {
+    fontSize: 12,
+    marginRight: 8,
+  },
+  // ✨ IMPROVEMENT: Added minWidth and textAlign for clean alignment
+  summaryValue: {
+    fontSize: 12,
+    fontWeight: '500',
+    minWidth: 80,
+    textAlign: 'right',
+  },
+  summaryLabelBold: {
+    fontWeight: 'bold'
+  },
+  summaryValueBold: {
+    fontWeight: 'bold'
+  },
   chevronIcon: {},
-  item: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
-  lastItem: { borderBottomWidth: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, marginBottom: 16 },
-  itemIcon: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-  itemDetails: { flex: 1 },
-  itemCategory: { fontSize: 16, fontWeight: '500' },
-  itemDate: { fontSize: 14, marginTop: 2 },
-  itemAmount: { fontSize: 16, fontWeight: '600' },
-  emptyContainer: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 32 },
-  emptyText: { fontSize: 18, fontWeight: '600', marginTop: 16 },
-  emptySubtext: { fontSize: 14, textAlign: 'center', marginTop: 8 },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1
+  },
+  lastItem: {
+    borderBottomWidth: 0,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    marginBottom: 16
+  },
+  itemIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16
+  },
+  itemDetails: {
+    flex: 1
+  },
+  itemCategory: {
+    fontSize: 16,
+    fontWeight: '500'
+  },
+  itemDate: {
+    fontSize: 14,
+    marginTop: 2
+  },
+  itemAmount: {
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingTop: 80,
+    paddingHorizontal: 32
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16
+  },
+  emptySubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8
+  },
 });
