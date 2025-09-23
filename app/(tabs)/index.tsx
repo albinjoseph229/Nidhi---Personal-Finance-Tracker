@@ -39,7 +39,6 @@ export default function HomeScreen() {
     totalIncome,
     totalExpenses,
     savings,
-    budgetLeft,
     recentTransactions,
     dynamicWeeklyData,
   } = useMemo(() => {
@@ -47,60 +46,36 @@ export default function HomeScreen() {
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
 
-    // Enhanced date parsing with better error handling
     const parseTransactionDate = (dateStr: string): Date => {
-      // Handle different date formats that might come from Google Sheets
       let date: Date;
-
       if (dateStr.includes("T")) {
-        // ISO format (what we send)
         date = new Date(dateStr);
       } else if (dateStr.includes("/")) {
-        // Possible MM/DD/YYYY format from sheets
         date = new Date(dateStr);
       } else if (dateStr.includes("-")) {
-        // YYYY-MM-DD format
         date = new Date(dateStr + "T00:00:00.000Z");
       } else {
-        // Fallback
         date = new Date(dateStr);
       }
-
-      // If date is invalid, use current date as fallback
       if (isNaN(date.getTime())) {
         console.warn(`Invalid date format: ${dateStr}, using current date`);
         date = new Date();
       }
-
       return date;
     };
 
     const transactionsThisMonth = transactions.filter((tx) => {
       try {
         const txDate = parseTransactionDate(tx.date);
-        const isCurrentMonth = txDate.getMonth() === currentMonth;
-        const isCurrentYear = txDate.getFullYear() === currentYear;
-
-        // Debug logging - remove after fixing
-        if (!isCurrentMonth || !isCurrentYear) {
-          console.log(
-            `Transaction filtered out: ${tx.category}, Date: ${
-              tx.date
-            }, Parsed: ${txDate.toISOString()}, Current: ${today.toISOString()}`
-          );
-        }
-
-        return isCurrentMonth && isCurrentYear;
+        return (
+          txDate.getMonth() === currentMonth &&
+          txDate.getFullYear() === currentYear
+        );
       } catch (error) {
         console.error(`Error parsing transaction date: ${tx.date}`, error);
         return false;
       }
     });
-
-    // Debug logging - remove after fixing
-    console.log(
-      `Found ${transactionsThisMonth.length} transactions for current month out of ${transactions.length} total`
-    );
 
     const income = transactionsThisMonth
       .filter((tx) => tx.type === "income")
@@ -118,13 +93,6 @@ export default function HomeScreen() {
       })
       .slice(0, 3);
 
-    const currentMonthYear = `${currentYear}-${String(
-      currentMonth + 1
-    ).padStart(2, "0")}`;
-    const budget = budgets.find((b) => b.monthYear === currentMonthYear);
-    const budgetAmount = budget?.amount || 0;
-
-    // Weekly data logic (also fix date parsing here)
     const weekData: WeeklyDataPoint[] = [];
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     for (let i = 6; i >= 0; i--) {
@@ -146,15 +114,11 @@ export default function HomeScreen() {
         const txDate = parseTransactionDate(tx.date);
         return tx.type === "expense" && txDate >= sevenDaysAgo;
       } catch (error) {
-        console.error(
-          `Error parsing weekly transaction date: ${tx.date}`,
-          error
-        );
+        console.error(`Error parsing weekly transaction date: ${tx.date}`, error);
         return false;
       }
     });
 
-    // Use a map for efficient summing
     const dailyTotals: { [key: string]: number } = {};
     weeklyTransactions.forEach((tx) => {
       try {
@@ -176,11 +140,10 @@ export default function HomeScreen() {
       totalIncome: income,
       totalExpenses: expenses,
       savings: income - expenses,
-      budgetLeft: budgetAmount - expenses,
       recentTransactions: recent,
       dynamicWeeklyData: weekData,
     };
-  }, [transactions, budgets]);
+  }, [transactions]);
 
   const onRefresh = async () => {
     await triggerFullSync();
@@ -294,26 +257,13 @@ export default function HomeScreen() {
             >
               Weekly Spend
             </ThemedText>
-            {budgetLeft < 0 ? (
-              <View style={styles.overBudgetTag}>
-                <ThemedText
-                  lightColor="#FFFFFF"
-                  darkColor={textColor}
-                  style={styles.overBudgetText}
-                >
-                  {formatAmount(Math.abs(budgetLeft))} over
-                </ThemedText>
-              </View>
-            ) : (
-              <ThemedText
-                style={[styles.analyticsMonth, { color: secondaryTextColor }]}
-              >
-                This month
-              </ThemedText>
-            )}
+            <ThemedText
+              style={[styles.analyticsMonth, { color: secondaryTextColor }]}
+            >
+              This month
+            </ThemedText>
           </View>
           <View style={styles.chartContainer}>
-            {/* ✅ FIX 2: Use a stable, unique key instead of index */}
             {dynamicWeeklyData.map((item) => {
               const maxAmount = Math.max(
                 ...dynamicWeeklyData.map((d) => d.amount),
@@ -455,13 +405,6 @@ const styles = StyleSheet.create({
   },
   analyticsTitle: { fontSize: 18, fontWeight: "600" },
   analyticsMonth: { fontSize: 14 },
-  overBudgetTag: {
-    backgroundColor: "#FF3B30",
-    borderRadius: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-  },
-  overBudgetText: { fontSize: 12, fontWeight: "600" },
   chartContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -485,7 +428,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
   },
-  upcomingTitle: { fontSize: 18,flex: 1, fontWeight: "600" },
+  upcomingTitle: { fontSize: 18, fontWeight: "600" },
   seeAllText: { fontSize: 14, color: "#007AFF", fontWeight: "500" },
   transactionItem: {
     flexDirection: "row",

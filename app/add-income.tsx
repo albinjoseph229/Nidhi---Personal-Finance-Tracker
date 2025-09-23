@@ -159,7 +159,11 @@ export default function AddIncomeScreen() {
           </View>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          style={{ flex: 1 }}
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={styles.scrollContent}
+        >
           <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
             <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Amount</ThemedText>
             <View style={styles.amountContainer}>
@@ -212,21 +216,21 @@ export default function AddIncomeScreen() {
               </View>
             </View>
           </ThemedView>
-
-          <View style={styles.saveButtonContainer}>
-            <Pressable 
-              style={[ styles.saveButton, { backgroundColor: saveButtonActiveColor }, (!amount || !selectedCategory || isSaving) && styles.saveButtonDisabled ]} 
-              onPress={handleSave} 
-              disabled={!amount || !selectedCategory || isSaving}
-            >
-              {isSaving ? (
-                <ActivityIndicator color={saveButtonTextColor} />
-              ) : (
-                <ThemedText style={[styles.saveButtonText, { color: saveButtonTextColor }]}>{isEditMode ? 'Update Income' : 'Save Income'}</ThemedText>
-              )}
-            </Pressable>
-          </View>
         </ScrollView>
+
+        <ThemedView style={styles.bottomContainer}>
+          <Pressable 
+            style={[ styles.saveButton, { backgroundColor: saveButtonActiveColor }, (!amount || !selectedCategory || isSaving) && styles.saveButtonDisabled ]} 
+            onPress={handleSave} 
+            disabled={!amount || !selectedCategory || isSaving}
+          >
+            {isSaving ? (
+              <ActivityIndicator color={saveButtonTextColor} />
+            ) : (
+              <ThemedText style={[styles.saveButtonText, { color: saveButtonTextColor }]}>{isEditMode ? 'Update Income' : 'Save Income'}</ThemedText>
+            )}
+          </Pressable>
+        </ThemedView>
       </KeyboardAvoidingView>
     </ThemedView>
   );
@@ -234,7 +238,7 @@ export default function AddIncomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { paddingBottom: 40 },
+  scrollContent: { paddingBottom: 20 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 60, paddingHorizontal: 20, paddingBottom: 20 },
   headerTitle: { fontSize: 28, fontWeight: 'bold' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
@@ -246,14 +250,18 @@ const styles = StyleSheet.create({
   currencySymbol: { fontSize: 32, fontWeight: "600", marginRight: 8, marginTop: 12 },
   amountInput: { fontSize: 64, fontWeight: "400", flex: 1 },
   categoryButton: { width: '30%', aspectRatio: 1, borderRadius: 16, justifyContent: "center", alignItems: "center", marginBottom: 12, padding: 8 },
-  categoryText: { fontSize: 13, fontWeight: '600', marginTop: 8 ,textAlign: 'center',},
+  categoryText: { fontSize: 13, fontWeight: '600', marginTop: 8, textAlign: 'center' },
   detailItem: { flexDirection: "row", alignItems: "center", paddingVertical: 16, borderBottomWidth: 1 },
   detailIconContainer: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
   detailContent: { flex: 1 },
   detailLabel: { fontSize: 14 },
   detailValue: { fontSize: 16, fontWeight: '500', marginTop: 2 },
   notesInput: { fontSize: 16, fontWeight: '500', paddingVertical: 0, marginTop: 2 },
-  saveButtonContainer: { paddingHorizontal: 20, marginTop: 10, marginBottom: 20 },
+  bottomContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 12,
+  },
   saveButton: { borderRadius: 16, paddingVertical: 16, justifyContent: 'center', alignItems: 'center' },
   saveButtonDisabled: { backgroundColor: "#AEAEB2" },
   saveButtonText: { fontSize: 18, fontWeight: "600" },

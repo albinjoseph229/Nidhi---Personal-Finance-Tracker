@@ -1,12 +1,12 @@
 // In app/(tabs)/history.tsx
 
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router'; // <-- Import useRouter
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useMemo, useState } from 'react';
 import {
   LayoutAnimation,
-  Pressable, // <-- Import Pressable
+  Pressable,
   RefreshControl,
   SectionList,
   StyleSheet,
@@ -24,7 +24,7 @@ import { Transaction } from '../../database';
 import { useThemeColor } from '../../hooks/use-theme-color';
 
 export default function HistoryScreen() {
-  const router = useRouter(); // <-- Initialize router
+  const router = useRouter();
   const { transactions, isSyncing, triggerFullSync } = useAppData();
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
@@ -209,118 +209,29 @@ export default function HistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    paddingBottom: 10
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold'
-  },
-  listContentContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 100
-  },
-  searchContainer: {
-    marginBottom: 20
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderBottomWidth: 1
-  },
-  sectionHeaderLeft: {
-    flex: 1
-  },
-  sectionHeaderRight: {
-    marginRight: 16
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600'
-  },
-  sectionSubTitle: {
-    fontSize: 12,
-    marginTop: 2
-  },
-  // ✅ FIX: Removed fixed width to allow content to fit
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center', // Added for better vertical alignment
-  },
-  // ✨ IMPROVEMENT: Added margin for spacing
-  summaryLabel: {
-    fontSize: 12,
-    marginRight: 8,
-  },
-  // ✨ IMPROVEMENT: Added minWidth and textAlign for clean alignment
-  summaryValue: {
-    fontSize: 12,
-    fontWeight: '500',
-    minWidth: 80,
-    textAlign: 'right',
-  },
-  summaryLabelBold: {
-    fontWeight: 'bold'
-  },
-  summaryValueBold: {
-    fontWeight: 'bold'
-  },
+  header: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 10 },
+  headerTitle: { fontSize: 28, fontWeight: 'bold' },
+  listContentContainer: { paddingHorizontal: 20, paddingBottom: 100 },
+  searchContainer: { marginBottom: 20 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderBottomWidth: 1 },
+  sectionHeaderLeft: { flex: 1 },
+  sectionHeaderRight: { marginRight: 16 },
+  sectionTitle: { fontSize: 16, fontWeight: '600' },
+  sectionSubTitle: { fontSize: 12, marginTop: 2 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  summaryLabel: { fontSize: 12, marginRight: 8 },
+  summaryValue: { fontSize: 12, fontWeight: '500', minWidth: 80, textAlign: 'right' },
+  summaryLabelBold: { fontWeight: 'bold' },
+  summaryValueBold: { fontWeight: 'bold' },
   chevronIcon: {},
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1
-  },
-  lastItem: {
-    borderBottomWidth: 0,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    marginBottom: 16
-  },
-  itemIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16
-  },
-  itemDetails: {
-    flex: 1
-  },
-  itemCategory: {
-    fontSize: 16,
-    fontWeight: '500'
-  },
-  itemDate: {
-    fontSize: 14,
-    marginTop: 2
-  },
-  itemAmount: {
-    fontSize: 16,
-    fontWeight: '600'
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingTop: 80,
-    paddingHorizontal: 32
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16
-  },
-  emptySubtext: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 8
-  },
+  item: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
+  lastItem: { borderBottomWidth: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, marginBottom: 16 },
+  itemIcon: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  itemDetails: { flex: 1 },
+  itemCategory: { fontSize: 16, fontWeight: '500' },
+  itemDate: { fontSize: 14, marginTop: 2 },
+  itemAmount: { fontSize: 16, fontWeight: '600' },
+  emptyContainer: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 32 },
+  emptyText: { fontSize: 18, fontWeight: '600', marginTop: 16 },
+  emptySubtext: { fontSize: 14, textAlign: 'center', marginTop: 8 },
 });

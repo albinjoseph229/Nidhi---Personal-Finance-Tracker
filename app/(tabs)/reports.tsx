@@ -352,97 +352,36 @@ export default function ReportsScreen() {
         </ThemedView>
 
         {viewMode === "current" && (
-          <ThemedView
-            style={[
-              styles.card,
-              { backgroundColor: cardColor, shadowColor: textColor },
-            ]}
-          >
+          <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
             <View style={styles.budgetHeader}>
               <ThemedText style={styles.cardTitle}>Monthly Budget</ThemedText>
               <Link href="/set-budget" asChild>
-                <ThemedText style={styles.linkText}>
-                  {" "}
-                  {monthlyBudget > 0 ? "Edit" : "Set Budget"}{" "}
-                </ThemedText>
+                <ThemedText style={styles.linkText}> {monthlyBudget > 0 ? "Edit" : "Set Budget"} </ThemedText>
               </Link>
             </View>
             {monthlyBudget > 0 ? (
               <>
                 <View style={styles.budgetStats}>
+                  <View style={styles.budgetStatItem}><ThemedText style={[styles.budgetStatLabel, { color: secondaryTextColor }]}>Spent</ThemedText><ThemedText style={styles.budgetStatValue}>{formatAmount(totalExpenses)}</ThemedText></View>
+                  
+                  {/* --- FIX STARTS HERE --- */}
                   <View style={styles.budgetStatItem}>
-                    <ThemedText
-                      style={[
-                        styles.budgetStatLabel,
-                        { color: secondaryTextColor },
-                      ]}
-                    >
-                      Spent
+                    <ThemedText style={[styles.budgetStatLabel, { color: secondaryTextColor }]}>
+                      {remainingBudget >= 0 ? 'Remaining' : 'Over'}
                     </ThemedText>
-                    <ThemedText style={styles.budgetStatValue}>
-                      {formatAmount(totalExpenses)}
-                    </ThemedText>
-                  </View>
-                  <View style={styles.budgetStatItem}>
-                    <ThemedText
-                      style={[
-                        styles.budgetStatLabel,
-                        { color: secondaryTextColor },
-                      ]}
-                    >
-                      Remaining
-                    </ThemedText>
-                    <ThemedText
-                      style={[
-                        styles.budgetStatValue,
-                        { color: remainingBudget >= 0 ? "#34C759" : "#FF3B30" },
-                      ]}
-                    >
+                    <ThemedText style={[styles.budgetStatValue, { color: remainingBudget >= 0 ? "#34C759" : "#FF3B30" }]}>
                       {formatAmount(Math.abs(remainingBudget))}
                     </ThemedText>
                   </View>
-                  <View style={styles.budgetStatItem}>
-                    <ThemedText
-                      style={[
-                        styles.budgetStatLabel,
-                        { color: secondaryTextColor },
-                      ]}
-                    >
-                      Budget
-                    </ThemedText>
-                    <ThemedText style={styles.budgetStatValue}>
-                      {formatAmount(monthlyBudget)}
-                    </ThemedText>
-                  </View>
+                  {/* --- FIX ENDS HERE --- */}
+
+                  <View style={styles.budgetStatItem}><ThemedText style={[styles.budgetStatLabel, { color: secondaryTextColor }]}>Budget</ThemedText><ThemedText style={styles.budgetStatValue}>{formatAmount(monthlyBudget)}</ThemedText></View>
                 </View>
-                <ThemedView
-                  style={[
-                    styles.progressBar,
-                    { backgroundColor: backgroundColor },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.progressFill,
-                      {
-                        width: `${Math.min(budgetProgress, 100)}%`,
-                        backgroundColor:
-                          budgetProgress > 100
-                            ? "#FF3B30"
-                            : budgetProgress > 80
-                            ? "#FF9500"
-                            : "#34C759",
-                      },
-                    ]}
-                  />
+                <ThemedView style={[styles.progressBar, { backgroundColor: backgroundColor }]}>
+                  <View style={[styles.progressFill, { width: `${Math.min(budgetProgress, 100)}%`, backgroundColor: budgetProgress > 100 ? "#FF3B30" : budgetProgress > 80 ? "#FF9500" : "#34C759" }]} />
                 </ThemedView>
               </>
-            ) : (
-              <ThemedText style={{ color: secondaryTextColor }}>
-                No budget set for this month. Tap 'Set Budget' to start
-                tracking.
-              </ThemedText>
-            )}
+            ) : ( <ThemedText style={{ color: secondaryTextColor }}>No budget set for this month. Tap 'Set Budget' to start tracking.</ThemedText> )}
           </ThemedView>
         )}
 
@@ -782,13 +721,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   categoryDot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
-  // ✅ FIX: Added marginRight to prevent the amount from crushing the name
-  categoryName: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "500",
-    marginRight: 8, // This ensures space between name and amount
-  },
+  categoryName: { flex: 1, fontSize: 15, fontWeight: "500" },
   categoryAmount: { fontSize: 15, fontWeight: "500" },
   chartHeader: {
     flexDirection: "row",
@@ -797,6 +730,7 @@ const styles = StyleSheet.create({
   },
   chartTypeSelector: { flexDirection: "row", gap: 16, marginBottom: 16 },
   chartContainer: { alignItems: "center", marginTop: 16 },
+  // ✅ FIX: Changed to center the pie chart correctly
   pieChartContainer: { 
     width: '100%',
     alignItems: 'center',

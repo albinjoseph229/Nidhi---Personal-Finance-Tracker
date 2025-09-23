@@ -137,7 +137,7 @@ export const updateTransaction = async (
   // Trigger background sync
   axios.post(API_URL, {
     apiKey: API_KEY,
-    action: "updateTransaction",
+    action: "updateTransaction", // ✅ This is correct
     data: { uuid, ...txData },
   }).catch(error => console.error("Background update sync failed:", error));
 };
