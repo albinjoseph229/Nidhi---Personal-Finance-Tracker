@@ -126,9 +126,18 @@ export default function HistoryScreen() {
           </ThemedView>
           <View style={styles.itemDetails}>
             <ThemedText style={styles.itemCategory}>{item.category}</ThemedText>
-            <ThemedText style={[styles.itemDate, { color: secondaryTextColor }]} numberOfLines={1}>
-              {item.notes || new Date(item.date).toLocaleDateString('en-IN', { weekday: 'long' })}
+            <ThemedText style={[styles.itemDate, { color: secondaryTextColor }]}>
+              {new Date(item.date).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })}
             </ThemedText>
+            {item.notes ? (
+              <ThemedText style={[styles.itemNotes, { color: secondaryTextColor }]} numberOfLines={1}>
+                {item.notes}
+              </ThemedText>
+            ) : null}
           </View>
           <ThemedText style={[styles.itemAmount, { color: item.type === 'income' ? '#34C759' : textColor }]}>
             {formatAmount(item.amount)}
@@ -218,18 +227,19 @@ const styles = StyleSheet.create({
   sectionHeaderRight: { marginRight: 16 },
   sectionTitle: { fontSize: 16, fontWeight: '600' },
   sectionSubTitle: { fontSize: 12, marginTop: 2 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  summaryLabel: { fontSize: 12, marginRight: 8 },
-  summaryValue: { fontSize: 12, fontWeight: '500', minWidth: 80, textAlign: 'right' },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', width: 140 },
+  summaryLabel: { fontSize: 12 },
+  summaryValue: { fontSize: 12, fontWeight: '500' },
   summaryLabelBold: { fontWeight: 'bold' },
   summaryValueBold: { fontWeight: 'bold' },
   chevronIcon: {},
   item: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
   lastItem: { borderBottomWidth: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, marginBottom: 16 },
   itemIcon: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-  itemDetails: { flex: 1 },
+  itemDetails: { flex: 1, marginRight: 8 },
   itemCategory: { fontSize: 16, fontWeight: '500' },
   itemDate: { fontSize: 14, marginTop: 2 },
+  itemNotes: { fontSize: 12, fontStyle: 'italic', marginTop: 4 },
   itemAmount: { fontSize: 16, fontWeight: '600' },
   emptyContainer: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 32 },
   emptyText: { fontSize: 18, fontWeight: '600', marginTop: 16 },

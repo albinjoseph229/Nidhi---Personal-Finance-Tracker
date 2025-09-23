@@ -24,6 +24,11 @@ import { ThemedView } from "../components/themed-view";
 import { useAppData } from "../context/AppContext";
 import { useTheme } from "../context/ThemeContext";
 import { useThemeColor } from "../hooks/use-theme-color";
+import {
+  formatDateForDisplay,
+  getISTDate,
+  parseAndNormalizeToIST
+} from "../utils/dateUtils";
 
 interface Category {
   name: string;
@@ -51,10 +56,10 @@ export default function AddExpenseScreen() {
 
   const isEditMode = !!params.uuid;
   
-  // State
+  // State - Initialize with IST date
   const [amount, setAmount] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [date, setDate] = useState(new Date());
+  const [date, setDate] = useState(getISTDate()); // Initialize with IST date
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -65,7 +70,8 @@ export default function AddExpenseScreen() {
       if (transactionToEdit) {
         setAmount(String(transactionToEdit.amount));
         setSelectedCategory(transactionToEdit.category);
-        setDate(new Date(transactionToEdit.date));
+        // Convert stored IST string back to Date object for the picker
+        setDate(getISTDate(transactionToEdit.date));
         setNotes(transactionToEdit.notes);
       }
     }
@@ -82,7 +88,13 @@ export default function AddExpenseScreen() {
   const showDatePicker = () => {
     DateTimePickerAndroid.open({
       value: date,
-      onChange: (event, selectedDate) => setDate(selectedDate || date),
+      onChange: (event, selectedDate) => {
+        if (selectedDate) {
+          // Ensure the selected date is treated as IST
+          const istDate = getISTDate(selectedDate.toISOString());
+          setDate(istDate);
+        }
+      },
       mode: "date",
     });
   };
@@ -119,11 +131,15 @@ export default function AddExpenseScreen() {
     }
 
     setIsSaving(true);
+    
+    // Convert the selected date to IST ISO string for storage
+    const istDateString = parseAndNormalizeToIST(date.toISOString());
+    
     const txData = {
       type: 'expense' as const,
       amount: numericAmount,
       category: selectedCategory,
-      date: date.toISOString(),
+      date: istDateString, // Store as IST ISO string
       notes: notes,
     };
 
@@ -205,7 +221,9 @@ export default function AddExpenseScreen() {
               </ThemedView>
               <View style={styles.detailContent}>
                 <ThemedText style={[styles.detailLabel, { color: secondaryTextColor }]}>Date</ThemedText>
-                <ThemedText style={styles.detailValue}>{date.toLocaleDateString("en-IN", { year: 'numeric', month: 'long', day: 'numeric' })}</ThemedText>
+                <ThemedText style={styles.detailValue}>
+                  {formatDateForDisplay(date.toISOString())}
+                </ThemedText>
               </View>
               <Feather name="chevron-right" size={16} color={secondaryTextColor} />
             </Pressable>

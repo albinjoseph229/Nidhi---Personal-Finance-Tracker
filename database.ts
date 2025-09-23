@@ -3,6 +3,10 @@ import * as SQLite from "expo-sqlite";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
 import { API_KEY, API_URL } from "./config.js";
+import {
+  formatDateForSheets,
+  parseAndNormalizeToIST
+} from "./utils/dateUtils";
 
 const db = SQLite.openDatabaseSync("expenses.db");
 
@@ -12,7 +16,7 @@ export interface Transaction {
   amount: number;
   type: "income" | "expense";
   category: string;
-  date: string;
+  date: string; // Always stored as IST ISO string
   notes: string;
   isSynced: 0 | 1;
 }
@@ -27,7 +31,7 @@ export const init = () => {
     `CREATE TABLE IF NOT EXISTS transactions (
       id INTEGER PRIMARY KEY NOT NULL,
       uuid TEXT UNIQUE,
-      type TEXT NOT NULL DEFAULT 'expense', -- ADD THIS LINE
+      type TEXT NOT NULL DEFAULT 'expense',
       amount REAL NOT NULL,
       category TEXT NOT NULL,
       date TEXT NOT NULL,
@@ -74,14 +78,13 @@ export const init = () => {
   console.log("Database initialized");
 };
 
-// Also update the addTransaction function to ensure consistent date format
 export const addTransaction = async (
   txData: Omit<Transaction, "isSynced" | "id" | "uuid">
 ): Promise<void> => {
   const newUuid = uuidv4();
   
-  // Ensure date is in ISO format
-  const normalizedDate = new Date(txData.date).toISOString();
+  // Normalize date to IST
+  const normalizedDate = parseAndNormalizeToIST(txData.date);
   
   await db.withTransactionAsync(async () => {
     await db.runAsync(
@@ -90,7 +93,7 @@ export const addTransaction = async (
       txData.type,
       txData.amount,
       txData.category,
-      normalizedDate, // Use normalized date
+      normalizedDate,
       txData.notes
     );
   });
@@ -123,26 +126,35 @@ export const updateTransaction = async (
   uuid: string,
   txData: Omit<Transaction, "isSynced" | "id" | "uuid">
 ): Promise<void> => {
+  // Normalize date to IST
+  const normalizedDate = parseAndNormalizeToIST(txData.date);
+  
   // Update locally first for immediate UI feedback
   await db.runAsync(
     `UPDATE transactions SET type = ?, amount = ?, category = ?, date = ?, notes = ?, isSynced = 0 WHERE uuid = ?;`,
     txData.type,
     txData.amount,
     txData.category,
-    txData.date,
+    normalizedDate,
     txData.notes,
     uuid
   );
   
-  // Trigger background sync
+  // Trigger background sync with properly formatted date for sheets
   axios.post(API_URL, {
     apiKey: API_KEY,
-    action: "updateTransaction", // ✅ This is correct
-    data: { uuid, ...txData },
+    action: "updateTransaction",
+    data: { 
+      uuid, 
+      type: txData.type,
+      amount: txData.amount,
+      category: txData.category,
+      date: formatDateForSheets(normalizedDate), // Format for Google Sheets
+      notes: txData.notes
+    },
   }).catch(error => console.error("Background update sync failed:", error));
 };
 
-// NEW: Function to delete a transaction
 export const deleteTransaction = async (uuid: string): Promise<void> => {
   // Delete locally first
   await db.runAsync(`DELETE FROM transactions WHERE uuid = ?;`, uuid);
@@ -155,7 +167,6 @@ export const deleteTransaction = async (uuid: string): Promise<void> => {
   }).catch(error => console.error("Background delete sync failed:", error));
 };
 
-// NEW: Function to upload unsynced transactions
 const uploadUnsyncedTransactions = async (): Promise<void> => {
   try {
     const unsyncedTxs = await getUnsyncedTransactions();
@@ -168,11 +179,11 @@ const uploadUnsyncedTransactions = async (): Promise<void> => {
           action: "addTransaction",
           data: {
             uuid: tx.uuid,
-            date: tx.date,
+            date: formatDateForSheets(tx.date), // Convert to sheets format (YYYY-MM-DD in IST)
             category: tx.category,
             amount: tx.amount,
             notes: tx.notes,
-            type: tx.type, // Add default type if needed
+            type: tx.type,
           },
         });
 
@@ -181,7 +192,7 @@ const uploadUnsyncedTransactions = async (): Promise<void> => {
           `UPDATE transactions SET isSynced = 1 WHERE uuid = ?;`,
           tx.uuid
         );
-        console.log(`Synced transaction ${tx.uuid}`);
+        console.log(`Synced transaction ${tx.uuid} with date ${formatDateForSheets(tx.date)}`);
       } catch (error) {
         console.error(`Failed to sync transaction ${tx.uuid}:`, error);
         // Continue with other transactions
@@ -236,7 +247,7 @@ export const syncData = async (): Promise<void> => {
     console.log("Downloading transactions from Google Sheets...");
     const txResponse = await axios.get(
       `${API_URL}?apiKey=${API_KEY}&action=getTransactions`,
-      { timeout: 10000 } // 10 second timeout
+      { timeout: 10000 }
     );
 
     const sheetTransactions = txResponse.data.data || [];
@@ -244,48 +255,11 @@ export const syncData = async (): Promise<void> => {
       `Downloaded ${sheetTransactions.length} transactions from sheets`
     );
 
-    // Helper function to normalize date format
-    const normalizeDate = (dateStr: any): string => {
-      if (!dateStr) return new Date().toISOString();
-      
-      let date: Date;
-      
-      // Handle different possible formats from Google Sheets
-      if (typeof dateStr === 'string') {
-        if (dateStr.includes('T')) {
-          // Already ISO format
-          date = new Date(dateStr);
-        } else if (dateStr.includes('/')) {
-          // MM/DD/YYYY or DD/MM/YYYY format
-          date = new Date(dateStr);
-        } else if (dateStr.includes('-')) {
-          // YYYY-MM-DD format - ensure it's treated as UTC
-          date = new Date(dateStr + 'T00:00:00.000Z');
-        } else {
-          date = new Date(dateStr);
-        }
-      } else if (dateStr instanceof Date) {
-        date = dateStr;
-      } else {
-        // Fallback
-        date = new Date(dateStr);
-      }
-      
-      // Validate the date
-      if (isNaN(date.getTime())) {
-        console.warn(`Invalid date received: ${dateStr}, using current date`);
-        date = new Date();
-      }
-      
-      // Return as ISO string
-      return date.toISOString();
-    };
-
     // 3. Merge with local data (avoid duplicates)
     await db.withTransactionAsync(async () => {
       for (const sheetTx of sheetTransactions) {
-        // Normalize the date from sheets
-        const normalizedDate = normalizeDate(sheetTx.Date || sheetTx.date);
+        // Normalize the date from sheets to IST
+        const normalizedDate = parseAndNormalizeToIST(sheetTx.Date || sheetTx.date);
         
         // Check if transaction already exists
         const existing = await db.getFirstAsync<{ count: number }>(
@@ -293,7 +267,7 @@ export const syncData = async (): Promise<void> => {
           sheetTx.uuid
         );
 
-        // More robust type handling
+        // Handle type field properly
         let transactionType = 'expense'; // default
         if (sheetTx.Type) {
           transactionType = sheetTx.Type.toString().toLowerCase();
@@ -312,7 +286,6 @@ export const syncData = async (): Promise<void> => {
           notes: sheetTx.Notes || sheetTx.notes || ""
         };
 
-        // Debug log
         console.log(`Processing transaction: ${transactionData.uuid}, Date: ${transactionData.date}, Type: ${transactionData.type}`);
 
         if (!existing || existing.count === 0) {
@@ -377,17 +350,15 @@ export const syncData = async (): Promise<void> => {
   }
 };
 
-// NEW: Function to get sync status
 export const getSyncStatus = async (): Promise<{
   unsyncedCount: number;
   lastSync: string | null;
 }> => {
   try {
     const unsynced = await getUnsyncedTransactions();
-    // You could also store last sync time in a separate table
     return {
       unsyncedCount: unsynced.length,
-      lastSync: null, // Implement if you want to track last sync time
+      lastSync: null,
     };
   } catch (error) {
     console.error("Failed to get sync status:", error);

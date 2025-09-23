@@ -14,9 +14,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
+        "backgroundColor": "#A6FFE4",
         "foregroundImage": "./assets/images/nidhi-adaptiveicon.png"
-
       },
       "package": "com.nidhi.expensetracker",
       "edgeToEdgeEnabled": true,
@@ -24,17 +23,17 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/nidhi-favicon.png"
+      "favicon": "./assets/images/nidhi-adaptiveicon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/nidhi-splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#A6FFE4",
           "dark": {
             "backgroundColor": "#000000"
           }
