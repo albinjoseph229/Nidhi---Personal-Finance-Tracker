@@ -8,22 +8,23 @@ import { Platform } from 'react-native';
 const tintColorLight = '#0a7ea4';
 const tintColorDark = '#fff';
 
+
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    text: '#1C1C1E', // Dark text for high contrast
+    background: '#F0F2F5', // Light grey background
+    card: '#FFFFFF', // White cards
+    tabIconDefault: '#9E9E9E', // Grey for inactive tabs
+    tabIconSelected: '#2D3A45', // Darker color for active tab
+    tint: '#1C1C1E', // General tint color
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    text: '#F5F5F5', // Light grey/off-white text
+    background: '#121212', // True dark background
+    card: '#1E1E1E', // Slightly lighter card background
+    tabIconDefault: '#8A8A8E', // Dimmed grey for inactive tabs
+    tabIconSelected: '#F5F5F5', // Light color for active tab
+    tint: '#F5F5F5', // General tint color
   },
 };
 

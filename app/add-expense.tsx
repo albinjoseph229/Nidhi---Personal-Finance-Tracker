@@ -1,7 +1,10 @@
-import { FontAwesome } from "@expo/vector-icons";
+// In app/add-expense.tsx
+
+import { Feather } from "@expo/vector-icons";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { StatusBar } from "expo-status-bar";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -11,47 +14,58 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
+  useColorScheme,
   View,
 } from "react-native";
+
+// Import themed components and hooks
+import { ThemedText } from "../components/themed-text";
+import { ThemedView } from "../components/themed-view";
 import { useAppData } from "../context/AppContext";
+import { useThemeColor } from "../hooks/use-theme-color";
 
 interface Category {
   name: string;
-  icon: React.ComponentProps<typeof FontAwesome>["name"];
+  icon: React.ComponentProps<typeof Feather>["name"];
   color: string;
 }
 
 const categories: Category[] = [
-  { name: "Food", icon: "cutlery", color: "#FF6B6B" },
-  { name: "Transport", icon: "car", color: "#4ECDC4" },
+  { name: "Food", icon: "coffee", color: "#FF6B6B" },
+  { name: "Transport", icon: "truck", color: "#4ECDC4" },
   { name: "Shopping", icon: "shopping-bag", color: "#45B7D1" },
-  { name: "Bills", icon: "file-text-o", color: "#96CEB4" },
-  { name: "Health", icon: "heartbeat", color: "#FECA57" },
-  { name: "Leisure", icon: "smile-o", color: "#FF9FF3" },
+  { name: "Bills", icon: "file-text", color: "#96CEB4" },
+  { name: "Health", icon: "heart", color: "#FECA57" },
+  { name: "Leisure", icon: "smile", color: "#FF9FF3" },
   { name: "Home", icon: "home", color: "#54A0FF" },
-  { name: "Education", icon: "book", color: "#5F27CD" },
-  { name: "Other", icon: "inbox", color: "#00D2D3" },
+  { name: "Education", icon: "book-open", color: "#5F27CD" },
+  { name: "Other", icon: "archive", color: "#00D2D3" },
 ];
 
 export default function AddExpenseScreen() {
   const router = useRouter();
   const { addTransaction } = useAppData();
+  const theme = useColorScheme() ?? 'light';
 
+  // State
   const [amount, setAmount] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [date, setDate] = useState(new Date());
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
+  // Theme Colors
+  const cardColor = useThemeColor({}, 'card');
+  const textColor = useThemeColor({}, 'text');
+  const secondaryTextColor = useThemeColor({}, 'tabIconDefault');
+  const backgroundColor = useThemeColor({}, 'background');
+  const saveButtonActiveColor = theme === 'light' ? '#1C1C1E' : cardColor;
+
   const showDatePicker = () => {
     DateTimePickerAndroid.open({
       value: date,
-      onChange: (event, selectedDate) => {
-        const currentDate = selectedDate || date;
-        setDate(currentDate);
-      },
+      onChange: (event, selectedDate) => setDate(selectedDate || date),
       mode: "date",
     });
   };
@@ -66,7 +80,6 @@ export default function AddExpenseScreen() {
     }
 
     setIsSaving(true);
-
     try {
       await addTransaction({
         amount: numericAmount,
@@ -74,7 +87,6 @@ export default function AddExpenseScreen() {
         date: date.toISOString(),
         notes: notes,
       });
-      
       router.back();
     } catch (error) {
       console.error("Failed to save expense:", error);
@@ -84,465 +96,233 @@ export default function AddExpenseScreen() {
     }
   };
 
-  const getSelectedCategoryColor = () => {
-    const category = categories.find(c => c.name === selectedCategory);
-    return category?.color || "#007AFF";
-  };
-
-  const formatAmount = (value: string) => {
-    if (!value) return "";
-    const numericValue = parseFloat(value);
-    if (isNaN(numericValue)) return value;
-    return new Intl.NumberFormat('en-IN').format(numericValue);
-  };
-
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+    <ThemedView style={styles.container}>
+      <StatusBar style={theme === 'light' ? 'dark' : 'light'} />
+      <KeyboardAvoidingView 
+        style={{flex: 1}} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Add Expense</Text>
-          <Text style={styles.headerSubtitle}>Track your spending</Text>
-        </View>
-
-        {/* Amount Input Card */}
-        <View style={styles.amountCard}>
-          <Text style={styles.amountLabel}>Amount</Text>
-          <View style={styles.amountContainer}>
-            <Text style={styles.currencySymbol}>₹</Text>
-            <TextInput
-              style={styles.amountInput}
-              placeholder="0"
-              placeholderTextColor="#C7C7CC"
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="numeric"
-              autoFocus={true}
-              returnKeyType="done"
-            />
-          </View>
-          {amount && !isNaN(parseFloat(amount)) && (
-            <Text style={styles.formattedAmount}>
-              {formatAmount(amount)}
-            </Text>
-          )}
-        </View>
-
-        {/* Category Selection */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Category</Text>
-          <FlatList
-            data={categories}
-            numColumns={3}
-            scrollEnabled={false}
-            keyExtractor={(item) => item.name}
-            renderItem={({ item }) => {
-              const isSelected = selectedCategory === item.name;
-              return (
-                <Pressable
-                  style={[
-                    styles.categoryButton,
-                    isSelected && { 
-                      backgroundColor: item.color,
-                      transform: [{ scale: 0.95 }] 
-                    }
-                  ]}
-                  onPress={() => setSelectedCategory(item.name)}
-                >
-                  <View style={[
-                    styles.categoryIconContainer,
-                    { backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : item.color + '20' }
-                  ]}>
-                    <FontAwesome
-                      name={item.icon}
-                      size={16}
-                      color={isSelected ? "white" : item.color}
-                    />
-                  </View>
-                  <Text style={[
-                    styles.categoryText, 
-                    { color: isSelected ? "white" : "#1D1D1F" }
-                  ]}>
-                    {item.name}
-                  </Text>
-                </Pressable>
-              );
-            }}
-            contentContainerStyle={styles.categoryGrid}
-          />
-        </View>
-
-        {/* Details Card */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Details</Text>
-          
-          {/* Date Picker */}
-          <Pressable style={styles.detailItem} onPress={showDatePicker}>
-            <View style={styles.detailIconContainer}>
-              <FontAwesome name="calendar" size={16} color="#007AFF" />
-            </View>
-            <View style={styles.detailContent}>
-              <Text style={styles.detailLabel}>Date</Text>
-              <Text style={styles.detailValue}>
-                {date.toLocaleDateString("en-IN", { 
-                  weekday: 'short',
-                  year: 'numeric', 
-                  month: 'short', 
-                  day: 'numeric' 
-                })}
-              </Text>
-            </View>
-            <FontAwesome name="chevron-right" size={12} color="#C7C7CC" />
+          <ThemedText style={styles.headerTitle}>Add Expense</ThemedText>
+          <Pressable onPress={() => router.back()} style={styles.closeButton}>
+              <Feather name="x" size={24} color={textColor} />
           </Pressable>
+        </View>
 
-          {/* Notes Input */}
-          <View style={styles.detailItem}>
-            <View style={styles.detailIconContainer}>
-              <FontAwesome name="pencil" size={16} color="#34C759" />
-            </View>
-            <View style={styles.detailContent}>
-              <Text style={styles.detailLabel}>Notes</Text>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Amount Input Card */}
+          <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
+            <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Amount</ThemedText>
+            <View style={styles.amountContainer}>
+              <ThemedText style={styles.currencySymbol}>₹</ThemedText>
               <TextInput
-                style={styles.notesInput}
-                placeholder="Add a note (optional)"
-                placeholderTextColor="#C7C7CC"
-                value={notes}
-                onChangeText={setNotes}
-                multiline={true}
-                returnKeyType="done"
+                style={[styles.amountInput, { color: textColor }]}
+                placeholder="0"
+                placeholderTextColor={secondaryTextColor}
+                value={amount}
+                onChangeText={setAmount}
+                keyboardType="decimal-pad"
+                autoFocus={true}
               />
             </View>
-          </View>
-        </View>
+          </ThemedView>
 
-        {/* Summary Card */}
-        {amount && selectedCategory && (
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryTitle}>Summary</Text>
-            <View style={styles.summaryContent}>
-              <View style={[
-                styles.summaryIcon, 
-                { backgroundColor: getSelectedCategoryColor() + '20' }
-              ]}>
-                <FontAwesome 
-                  name={categories.find(c => c.name === selectedCategory)?.icon || 'money'} 
-                  size={20} 
-                  color={getSelectedCategoryColor()} 
+          {/* Category Selection */}
+          <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
+            <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Category</ThemedText>
+            <FlatList
+              data={categories}
+              numColumns={3}
+              scrollEnabled={false}
+              keyExtractor={(item) => item.name}
+              renderItem={({ item }) => {
+                const isSelected = selectedCategory === item.name;
+                return (
+                  <Pressable
+                    style={[ styles.categoryButton, { backgroundColor: isSelected ? item.color : backgroundColor } ]}
+                    onPress={() => setSelectedCategory(item.name)}
+                  >
+                    <Feather name={item.icon} size={24} color={isSelected ? "white" : textColor} />
+                    <ThemedText style={[ styles.categoryText, { color: isSelected ? "white" : secondaryTextColor } ]}>
+                      {item.name}
+                    </ThemedText>
+                  </Pressable>
+                );
+              }}
+              columnWrapperStyle={{ justifyContent: 'space-between' }}
+            />
+          </ThemedView>
+
+          {/* Details Card */}
+          <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
+            <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Details</ThemedText>
+            
+            <Pressable style={[styles.detailItem, { borderBottomColor: backgroundColor }]} onPress={showDatePicker}>
+              <ThemedView style={[styles.detailIconContainer, { backgroundColor: backgroundColor }]}>
+                <Feather name="calendar" size={20} color="#3478F6" />
+              </ThemedView>
+              <View style={styles.detailContent}>
+                <ThemedText style={[styles.detailLabel, { color: secondaryTextColor }]}>Date</ThemedText>
+                <ThemedText style={styles.detailValue}>
+                  {date.toLocaleDateString("en-IN", { year: 'numeric', month: 'long', day: 'numeric' })}
+                </ThemedText>
+              </View>
+              <Feather name="chevron-right" size={16} color={secondaryTextColor} />
+            </Pressable>
+
+            <View style={[styles.detailItem, { borderBottomWidth: 0 }]}>
+              <ThemedView style={[styles.detailIconContainer, { backgroundColor: backgroundColor }]}>
+                <Feather name="edit-3" size={20} color="#34C759" />
+              </ThemedView>
+              <View style={styles.detailContent}>
+                <ThemedText style={[styles.detailLabel, { color: secondaryTextColor }]}>Notes</ThemedText>
+                <TextInput
+                  style={[styles.notesInput, { color: textColor }]}
+                  placeholder="Optional"
+                  placeholderTextColor={secondaryTextColor}
+                  value={notes}
+                  onChangeText={setNotes}
                 />
               </View>
-              <View style={styles.summaryDetails}>
-                <Text style={styles.summaryAmount}>
-                  ₹{parseFloat(amount).toLocaleString('en-IN')}
-                </Text>
-                <Text style={styles.summaryCategory}>{selectedCategory}</Text>
-                {notes && <Text style={styles.summaryNotes}>{notes}</Text>}
-              </View>
             </View>
+          </ThemedView>
+          
+          <View style={styles.saveButtonContainer}>
+            <Pressable 
+              style={[ styles.saveButton, { backgroundColor: saveButtonActiveColor }, (!amount || !selectedCategory || isSaving) && styles.saveButtonDisabled ]} 
+              onPress={handleSave} 
+              disabled={!amount || !selectedCategory || isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator color={theme === 'light' ? 'white' : textColor} />
+              ) : (
+                <ThemedText style={[styles.saveButtonText, { color: theme === 'light' ? 'white' : textColor }]}>Save Expense</ThemedText>
+              )}
+            </Pressable>
           </View>
-        )}
-      </ScrollView>
-
-      {/* Save Button */}
-      <View style={styles.bottomContainer}>
-        <Pressable 
-          style={[
-            styles.saveButton,
-            (!amount || !selectedCategory || isSaving) && styles.saveButtonDisabled
-          ]} 
-          onPress={handleSave} 
-          disabled={!amount || !selectedCategory || isSaving}
-        >
-          {isSaving ? (
-            <ActivityIndicator color="white" size="small" />
-          ) : (
-            <>
-              <FontAwesome name="check" size={16} color="white" />
-              <Text style={styles.saveButtonText}>Save Expense</Text>
-            </>
-          )}
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: "#F8F9FA" 
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: 40,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 60,
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
-    backgroundColor: "white",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    paddingBottom: 20,
   },
   headerTitle: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#1D1D1F',
-    marginBottom: 4,
+    fontWeight: 'bold',
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#8E8E93',
-    fontWeight: '500',
+  closeButton: {
+    padding: 4,
   },
-  amountCard: {
-    backgroundColor: "white",
+  card: {
     marginHorizontal: 20,
-    marginTop: 20,
-    borderRadius: 16,
+    marginBottom: 20,
+    borderRadius: 20,
     padding: 24,
-    alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
   },
-  amountLabel: {
-    fontSize: 14,
-    color: '#8E8E93',
-    fontWeight: '500',
-    marginBottom: 8,
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 20,
   },
   amountContainer: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: "flex-start",
   },
   currencySymbol: { 
     fontSize: 32, 
-    fontWeight: "300", 
-    color: '#1D1D1F',
-    marginRight: 8 
+    fontWeight: "600", 
+    marginRight: 8,
+    marginTop: 12,
   },
   amountInput: { 
-    fontSize: 48, 
-    fontWeight: "700",
-    color: '#1D1D1F',
-    textAlign: 'center',
-    minWidth: 100,
-  },
-  formattedAmount: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginTop: 8,
-    fontWeight: '500',
-  },
-  sectionCard: {
-    backgroundColor: "white",
-    marginHorizontal: 20,
-    marginTop: 20,
-    borderRadius: 16,
-    padding: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1D1D1F",
-    marginBottom: 16,
-  },
-  categoryGrid: { 
-    justifyContent: 'center',
+    fontSize: 64, 
+    fontWeight: "400",
+    flex: 1,
   },
   categoryButton: {
-    width: 90,
-    height: 90,
+    width: '30%',
+    aspectRatio: 1,
     borderRadius: 16,
-    backgroundColor: "#F8F9FA",
     justifyContent: "center",
     alignItems: "center",
-    margin: 6,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  categoryIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
+    padding: 8,
   },
   categoryText: { 
-    fontSize: 11, 
+    fontSize: 13, 
     fontWeight: '600',
-    textAlign: 'center',
+    marginTop: 8,
   },
   detailItem: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F7",
   },
   detailIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F2F2F7',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   detailContent: {
     flex: 1,
   },
   detailLabel: {
     fontSize: 14,
-    color: '#8E8E93',
-    fontWeight: '500',
-    marginBottom: 2,
   },
   detailValue: { 
     fontSize: 16, 
-    color: '#1D1D1F',
     fontWeight: '500',
+    marginTop: 2,
   },
   notesInput: { 
     fontSize: 16, 
-    color: '#1D1D1F',
     fontWeight: '500',
-    paddingVertical: 4,
+    paddingVertical: 0,
+    marginTop: 2,
   },
-  summaryCard: {
-    backgroundColor: "white",
-    marginHorizontal: 20,
-    marginTop: 20,
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: '#007AFF20',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#007AFF',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#007AFF",
-    marginBottom: 12,
-  },
-  summaryContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  summaryIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  summaryDetails: {
-    flex: 1,
-  },
-  summaryAmount: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1D1D1F',
-    marginBottom: 4,
-  },
-  summaryCategory: {
-    fontSize: 16,
-    color: '#8E8E93',
-    fontWeight: '500',
-  },
-  summaryNotes: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-  bottomContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'white',
+  saveButtonContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 20,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
+    marginTop: 10,
   },
   saveButton: {
-    backgroundColor: "#007AFF",
     borderRadius: 16,
     paddingVertical: 16,
-    paddingHorizontal: 24,
-    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
   },
   saveButtonDisabled: {
-    backgroundColor: "#C7C7CC",
+    backgroundColor: "#AEAEB2",
   },
   saveButtonText: {
-    color: "white",
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
   },
 });

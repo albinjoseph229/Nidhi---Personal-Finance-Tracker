@@ -1,38 +1,54 @@
-import { FontAwesome } from '@expo/vector-icons';
+// In app/(tabs)/history.tsx
+
+import { Feather } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import React, { useMemo, useState } from 'react';
 import {
-  Platform,
+  LayoutAnimation,
   RefreshControl,
   SectionList,
   StyleSheet,
-  Text,
   TouchableOpacity,
-  View
+  useColorScheme,
+  View,
 } from 'react-native';
+
+// Import your themed components and hooks
 import { SearchBar } from '../../components/SearchBar';
+import { ThemedText } from '../../components/themed-text';
+import { ThemedView } from '../../components/themed-view';
 import { useAppData } from '../../context/AppContext';
 import { Transaction } from '../../database';
+import { useThemeColor } from '../../hooks/use-theme-color';
 
 interface TransactionSection {
   title: string;
   total: number;
   data: Transaction[];
-  isCollapsed?: boolean;
+  originalData: Transaction[];
 }
 
 export default function HistoryScreen() {
   const { transactions, isSyncing, triggerFullSync } = useAppData();
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const theme = useColorScheme() ?? 'light';
 
+  // Fetch all necessary colors from the theme once
+  const cardColor = useThemeColor({}, 'card');
+  const textColor = useThemeColor({}, 'text');
+  const secondaryTextColor = useThemeColor({}, 'tabIconDefault');
+  const separatorColor = useThemeColor({}, 'background');
+
+  // Your data processing logic remains unchanged
   const sections = useMemo(() => {
+    // ... (logic remains the same)
     const filteredTransactions = transactions.filter(tx =>
       tx.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tx.notes.toLowerCase().includes(searchQuery.toLowerCase())
+      (tx.notes && tx.notes.toLowerCase().includes(searchQuery.toLowerCase()))
     );
-
     const grouped = filteredTransactions.reduce((acc, tx) => {
-      const monthYear = new Date(tx.date).toLocaleString('default', { month: 'long', year: 'numeric' });
+      const monthYear = new Date(tx.date).toLocaleString('en-US', { month: 'long', year: 'numeric' });
       if (!acc[monthYear]) {
         acc[monthYear] = { total: 0, data: [] };
       }
@@ -40,19 +56,17 @@ export default function HistoryScreen() {
       acc[monthYear].total += tx.amount;
       return acc;
     }, {} as { [key: string]: { total: number, data: Transaction[] } });
-    
-    return Object.keys(grouped)
-      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime()) // Sort by date descending
-      .map(monthYear => ({
-        title: monthYear,
-        total: grouped[monthYear].total,
-        data: collapsedSections.has(monthYear) ? [] : grouped[monthYear].data,
-        isCollapsed: collapsedSections.has(monthYear),
-        originalDataCount: grouped[monthYear].data.length
-      }));
+    const sortedKeys = Object.keys(grouped).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    return sortedKeys.map(monthYear => ({
+      title: monthYear,
+      total: grouped[monthYear].total,
+      data: collapsedSections.has(monthYear) ? [] : grouped[monthYear].data,
+      originalData: grouped[monthYear].data,
+    }));
   }, [transactions, searchQuery, collapsedSections]);
 
   const toggleSection = (sectionTitle: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setCollapsedSections(prev => {
       const newSet = new Set(prev);
       if (newSet.has(sectionTitle)) {
@@ -69,251 +83,210 @@ export default function HistoryScreen() {
   };
 
   const getCategoryIcon = (category: string) => {
+    // ... (function remains the same)
     const categoryLower = category.toLowerCase();
-    if (categoryLower.includes('food') || categoryLower.includes('restaurant')) return 'cutlery';
-    if (categoryLower.includes('transport') || categoryLower.includes('fuel')) return 'car';
-    if (categoryLower.includes('shopping') || categoryLower.includes('grocery')) return 'shopping-cart';
-    if (categoryLower.includes('entertainment') || categoryLower.includes('movie')) return 'film';
-    if (categoryLower.includes('health') || categoryLower.includes('medical')) return 'heartbeat';
-    if (categoryLower.includes('bill') || categoryLower.includes('utility')) return 'file-text-o';
-    return 'money';
+    if (categoryLower.includes('food')) return 'shopping-bag';
+    if (categoryLower.includes('transport')) return 'truck';
+    if (categoryLower.includes('shopping')) return 'shopping-cart';
+    if (categoryLower.includes('entertainment')) return 'film';
+    if (categoryLower.includes('health')) return 'heart';
+    if (categoryLower.includes('bill')) return 'file-text';
+    return 'trending-down';
   };
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
-      minimumFractionDigits: 0,
+      minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(amount);
+    }).format(amount).replace('₹', '₹ ');
   };
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} />
+  const renderTransactionItem = ({ item, index, section }: { item: Transaction, index: number, section: any }) => {
+    const isLastItem = index === section.data.length - 1;
+    return (
+      <View style={[styles.item, { backgroundColor: cardColor }, isLastItem && styles.lastItem]}>
+        <ThemedView style={styles.itemIcon}>
+          <Feather 
+            name={getCategoryIcon(item.category)} 
+            size={20} 
+            color={textColor}
+          />
+        </ThemedView>
+        <View style={styles.itemDetails}>
+          <ThemedText style={styles.itemCategory}>{item.category}</ThemedText>
+          <ThemedText style={[styles.itemDate, { color: secondaryTextColor }]} numberOfLines={1}>
+            {item.notes || new Date(item.date).toLocaleDateString('en-IN', { weekday: 'long' })}
+          </ThemedText>
+        </View>
+        <ThemedText style={styles.itemAmount}>
+          {formatAmount(item.amount)}
+        </ThemedText>
       </View>
+    );
+  };
+  
+  return (
+    <ThemedView style={styles.container}>
+      <StatusBar style={theme === 'light' ? 'dark' : 'light'} />
 
+      {/* Custom Header */}
+      <View style={styles.header}>
+        <ThemedText style={styles.headerTitle}>History</ThemedText>
+      </View>
+      
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.uuid}
+        ListHeaderComponent={
+          <View style={styles.searchContainer}>
+            {/* Assuming SearchBar is or will be made theme-aware */}
+            <SearchBar placeholder="Search transactions..." value={searchQuery} onChangeText={setSearchQuery} />
+          </View>
+        }
+        renderSectionHeader={({ section }) => (
+          <TouchableOpacity 
+            style={[styles.sectionHeader, { backgroundColor: cardColor, borderBottomColor: separatorColor }]}
+            onPress={() => toggleSection(section.title)}
+            activeOpacity={0.8}
+          >
+            <View>
+              <ThemedText style={styles.sectionTitle}>{section.title}</ThemedText>
+              <ThemedText style={[styles.sectionSubTitle, { color: secondaryTextColor }]}>
+                {section.originalData.length} transaction{section.originalData.length !== 1 ? 's' : ''}
+              </ThemedText>
+            </View>
+            <View style={styles.sectionRightContent}>
+              <ThemedText style={styles.sectionTotal}>{formatAmount(section.total)}</ThemedText>
+              <Feather 
+                name={collapsedSections.has(section.title) ? 'chevron-down' : 'chevron-up'} 
+                size={20} 
+                color={secondaryTextColor}
+              />
+            </View>
+          </TouchableOpacity>
+        )}
+        renderItem={renderTransactionItem}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Feather name="search" size={48} color={secondaryTextColor} style={{ opacity: 0.5 }}/>
+            <ThemedText style={[styles.emptyText, { color: secondaryTextColor }]}>No Transactions Found</ThemedText>
+            <ThemedText style={[styles.emptySubtext, { color: secondaryTextColor }]}>
+              {searchQuery ? 'Try a different search term.' : 'Your transaction history is empty.'}
+            </ThemedText>
+          </View>
+        }
+        contentContainerStyle={styles.listContentContainer}
+        stickySectionHeadersEnabled={false}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl 
             refreshing={isSyncing} 
             onRefresh={onRefresh}
-            colors={['#007AFF']}
-            tintColor="#007AFF"
+            tintColor={textColor}
           />
         }
-        renderSectionHeader={({ section }) => (
-          <TouchableOpacity 
-            style={styles.sectionHeader}
-            onPress={() => toggleSection(section.title)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.sectionHeaderContent}>
-              <View style={styles.sectionTitleContainer}>
-                <Text style={styles.sectionTitle}>{section.title}</Text>
-                <Text style={styles.transactionCount}>
-                  {section.originalDataCount} transaction{section.originalDataCount !== 1 ? 's' : ''}
-                </Text>
-              </View>
-              <View style={styles.sectionRightContent}>
-                <Text style={[
-                  styles.sectionTotal,
-                  { color: section.total < 0 ? '#FF3B30' : '#34C759' }
-                ]}>
-                  {formatAmount(Math.abs(section.total))}
-                </Text>
-                <FontAwesome 
-                  name={section.isCollapsed ? 'chevron-down' : 'chevron-up'} 
-                  size={14} 
-                  color="#666" 
-                  style={styles.chevronIcon}
-                />
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
-        renderItem={({ item }) => (
-          <View style={styles.item}>
-            <View style={[styles.itemIcon, { backgroundColor: getCategoryColor(item.category) }]}>
-              <FontAwesome 
-                name={getCategoryIcon(item.category)} 
-                size={18} 
-                color="white" 
-              />
-            </View>
-            <View style={styles.itemDetails}>
-              <Text style={styles.itemCategory}>{item.category}</Text>
-              <Text style={styles.itemNotes} numberOfLines={1}>
-                {item.notes || 'No description'}
-              </Text>
-              <Text style={styles.itemDate}>
-                {new Date(item.date).toLocaleDateString('en-IN', {
-                  day: 'numeric',
-                  month: 'short'
-                })}
-              </Text>
-            </View>
-            <View style={styles.itemAmountContainer}>
-              <Text style={styles.itemAmount}>
-                {formatAmount(item.amount)}
-              </Text>
-            </View>
-          </View>
-        )}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <FontAwesome name="search" size={48} color="#ccc" />
-            <Text style={styles.emptyText}>No transactions found</Text>
-            <Text style={styles.emptySubtext}>
-              {searchQuery ? 'Try adjusting your search terms' : 'Start adding transactions to see them here'}
-            </Text>
-          </View>
-        }
-        showsVerticalScrollIndicator={false}
-        stickySectionHeadersEnabled={true}
       />
-    </View>
+    </ThemedView>
   );
 }
 
-const getCategoryColor = (category: string) => {
-  const colors = ['#007AFF', '#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#5AC8FA', '#AF52DE', '#FF2D92'];
-  let hash = 0;
-  for (let i = 0; i < category.length; i++) {
-    hash = category.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
-};
-
+// Styles now only contain layout and typography, no colors.
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#f8f9fa' 
+  },
+  header: {
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  listContentContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
   },
   searchContainer: {
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e1e8ed',
+    marginBottom: 20,
   },
   sectionHeader: {
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e1e8ed',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  sectionHeaderContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  sectionTitleContainer: {
-    flex: 1,
+    padding: 16,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderBottomWidth: 1,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#1d1d1f',
-    marginBottom: 2,
   },
-  transactionCount: {
+  sectionSubTitle: {
     fontSize: 12,
-    color: '#8e8e93',
-    fontWeight: '500',
+    marginTop: 2,
   },
   sectionRightContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   sectionTotal: {
     fontSize: 16,
-    fontWeight: '700',
-    marginRight: 8,
-  },
-  chevronIcon: {
-    marginLeft: 4,
+    fontWeight: '500',
   },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    padding: 16,
+    // borderBottomWidth will be applied dynamically
+  },
+  lastItem: {
+    borderBottomWidth: 0,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    marginBottom: 16,
   },
   itemIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   itemDetails: {
     flex: 1,
-    justifyContent: 'center',
   },
   itemCategory: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1d1d1f',
-    marginBottom: 2,
-  },
-  itemNotes: {
-    fontSize: 14,
-    color: '#8e8e93',
-    marginBottom: 2,
-    lineHeight: 18,
-  },
-  itemDate: {
-    fontSize: 12,
-    color: '#c7c7cc',
     fontWeight: '500',
   },
-  itemAmountContainer: {
-    alignItems: 'flex-end',
+  itemDate: {
+    fontSize: 14,
+    marginTop: 2,
   },
   itemAmount: {
     fontSize: 16,
-    color: '#FF3B30',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
     paddingTop: 80,
     paddingHorizontal: 32,
   },
   emptyText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#8e8e93',
     marginTop: 16,
-    marginBottom: 8,
   },
   emptySubtext: {
-    fontSize: 16,
-    color: '#c7c7cc',
+    fontSize: 14,
     textAlign: 'center',
-    lineHeight: 22,
+    marginTop: 8,
   },
 });
