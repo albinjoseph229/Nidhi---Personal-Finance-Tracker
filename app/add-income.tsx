@@ -6,16 +6,16 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
-    ActivityIndicator, // Add this import
-    Alert,
-    FlatList, // Add this import
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput, // Add this import
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
 } from "react-native";
 
 // Import themed components and hooks
@@ -185,33 +185,34 @@ export default function AddIncomeScreen() {
               </View>
             </View>
           </ThemedView>
-          
-          <View style={styles.saveButtonContainer}>
-            <Pressable 
-              style={[ styles.saveButton, { backgroundColor: saveButtonActiveColor }, (!amount || !selectedCategory || isSaving) && styles.saveButtonDisabled ]} 
-              onPress={handleSave} 
-              disabled={!amount || !selectedCategory || isSaving}
-            >
-              {isSaving ? (
-                <ActivityIndicator color={theme === 'light' ? 'white' : textColor} />
-              ) : (
-                <ThemedText style={[styles.saveButtonText, { color: saveButtonTextColor }]}>Save Income</ThemedText>
-              )}
-            </Pressable>
-          </View>
         </ScrollView>
+
+        {/* MODIFIED: Save button moved outside scrollview to be sticky */}
+        <ThemedView style={styles.bottomContainer}>
+            <Pressable 
+                style={[ styles.saveButton, { backgroundColor: saveButtonActiveColor }, (!amount || !selectedCategory || isSaving) && styles.saveButtonDisabled ]} 
+                onPress={handleSave} 
+                disabled={!amount || !selectedCategory || isSaving}
+            >
+                {isSaving ? (
+                <ActivityIndicator color={saveButtonTextColor} />
+                ) : (
+                <ThemedText style={[styles.saveButtonText, { color: saveButtonTextColor }]}>Save Income</ThemedText>
+                )}
+            </Pressable>
+        </ThemedView>
       </KeyboardAvoidingView>
     </ThemedView>
   );
 }
 
-// You can copy the exact same StyleSheet from your `add-expense.tsx` file
+// MODIFIED: Styles updated to match other pages
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 120,
   },
   header: {
     flexDirection: 'row',
@@ -303,10 +304,10 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     marginTop: 2,
   },
-  saveButtonContainer: {
+  bottomContainer: {
     paddingHorizontal: 20,
-    marginTop: 10,
-    marginBottom: 20,
+    paddingVertical: 12,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 12,
   },
   saveButton: {
     borderRadius: 16,

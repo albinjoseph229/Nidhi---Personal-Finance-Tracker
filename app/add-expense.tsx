@@ -61,6 +61,8 @@ export default function AddExpenseScreen() {
   const secondaryTextColor = useThemeColor({}, 'tabIconDefault');
   const backgroundColor = useThemeColor({}, 'background');
   const saveButtonActiveColor = theme === 'light' ? '#1C1C1E' : cardColor;
+  // MODIFIED: Added for consistency
+  const saveButtonTextColor = theme === 'light' ? '#FFFFFF' : textColor;
 
   const showDatePicker = () => {
     DateTimePickerAndroid.open({
@@ -192,21 +194,22 @@ export default function AddExpenseScreen() {
               </View>
             </View>
           </ThemedView>
-          
-          <View style={styles.saveButtonContainer}>
-            <Pressable 
-              style={[ styles.saveButton, { backgroundColor: saveButtonActiveColor }, (!amount || !selectedCategory || isSaving) && styles.saveButtonDisabled ]} 
-              onPress={handleSave} 
-              disabled={!amount || !selectedCategory || isSaving}
-            >
-              {isSaving ? (
-                <ActivityIndicator color={theme === 'light' ? 'white' : textColor} />
-              ) : (
-                <ThemedText style={[styles.saveButtonText, { color: theme === 'light' ? 'white' : textColor }]}>Save Expense</ThemedText>
-              )}
-            </Pressable>
-          </View>
         </ScrollView>
+        
+        {/* MODIFIED: Save button moved outside scrollview to be sticky */}
+        <ThemedView style={styles.bottomContainer}>
+          <Pressable 
+            style={[ styles.saveButton, { backgroundColor: saveButtonActiveColor }, (!amount || !selectedCategory || isSaving) && styles.saveButtonDisabled ]} 
+            onPress={handleSave} 
+            disabled={!amount || !selectedCategory || isSaving}
+          >
+            {isSaving ? (
+              <ActivityIndicator color={saveButtonTextColor} />
+            ) : (
+              <ThemedText style={[styles.saveButtonText, { color: saveButtonTextColor }]}>Save Expense</ThemedText>
+            )}
+          </Pressable>
+        </ThemedView>
       </KeyboardAvoidingView>
     </ThemedView>
   );
@@ -217,7 +220,8 @@ const styles = StyleSheet.create({
     flex: 1, 
   },
   scrollContent: {
-    paddingBottom: 40,
+    // MODIFIED: Increased padding to avoid overlap with sticky button
+    paddingBottom: 120,
   },
   header: {
     flexDirection: 'row',
@@ -309,9 +313,11 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     marginTop: 2,
   },
-  saveButtonContainer: {
+  // MODIFIED: Renamed from saveButtonContainer and updated styles
+  bottomContainer: {
     paddingHorizontal: 20,
-    marginTop: 10,
+    paddingVertical: 12,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 12,
   },
   saveButton: {
     borderRadius: 16,

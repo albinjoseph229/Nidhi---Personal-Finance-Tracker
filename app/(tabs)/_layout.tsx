@@ -60,16 +60,18 @@ export default function TabLayout() {
           tabBarInactiveTintColor: inactiveTabColor,
           tabBarStyle: {
             position: 'absolute',
-            bottom: 15, 
-            left: 20,
-            right: 20,
+            // MODIFIED: Moved to the bottom and made edge-to-edge
+            bottom: 0, 
+            left: 0,
+            right: 0,
             elevation: 0,
             backgroundColor: cardColor,
-            borderRadius: 30,
-            height: 60,
+            // MODIFIED: Increased height for better spacing
+            height: 70,
             borderTopWidth: 0,
             shadowColor: shadowColor,
-            shadowOffset: { width: 0, height: 2 },
+            // MODIFIED: Shadow now casts upwards
+            shadowOffset: { width: 0, height: -2 },
             shadowOpacity: theme === 'light' ? 0.1 : 0,
             shadowRadius: 3.84,
           },
