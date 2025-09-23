@@ -2,9 +2,9 @@
 
 import { Feather } from "@expo/vector-icons";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -31,7 +31,6 @@ interface Category {
   color: string;
 }
 
-// A new, simpler list of categories for income
 const incomeCategories: Category[] = [
   { name: "Salary", icon: "dollar-sign", color: "#45B7D1" },
   { name: "Freelance", icon: "briefcase", color: "#4ECDC4" },
@@ -43,15 +42,31 @@ const incomeCategories: Category[] = [
 
 export default function AddIncomeScreen() {
   const router = useRouter();
-  const { addTransaction } = useAppData();
+  const params = useLocalSearchParams<{ uuid?: string }>();
+  const { transactions, addTransaction, updateTransaction, deleteTransaction } = useAppData();
   const { theme } = useTheme();
 
+  const isEditMode = !!params.uuid;
+  
   // State
   const [amount, setAmount] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [date, setDate] = useState(new Date());
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  // Effect to load transaction data in edit mode
+  useEffect(() => {
+    if (isEditMode) {
+      const transactionToEdit = transactions.find(tx => tx.uuid === params.uuid);
+      if (transactionToEdit) {
+        setAmount(String(transactionToEdit.amount));
+        setSelectedCategory(transactionToEdit.category);
+        setDate(new Date(transactionToEdit.date));
+        setNotes(transactionToEdit.notes);
+      }
+    }
+  }, [params.uuid, transactions]);
 
   // Theme Colors
   const cardColor = useThemeColor({}, 'card');
@@ -68,6 +83,28 @@ export default function AddIncomeScreen() {
       mode: "date",
     });
   };
+  
+  const handleDelete = () => {
+    if (!params.uuid) return;
+    Alert.alert(
+      "Delete Transaction",
+      "Are you sure you want to permanently delete this income record?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: async () => {
+            try {
+              await deleteTransaction(params.uuid!);
+              if (router.canGoBack()) {
+                router.back();
+              }
+            } catch (error) {
+              Alert.alert("Error", "Failed to delete the transaction.");
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const handleSave = async () => {
     const numericAmount = parseFloat(amount);
@@ -75,22 +112,30 @@ export default function AddIncomeScreen() {
       return Alert.alert("Invalid Amount", "Please enter an amount greater than zero.");
     }
     if (!selectedCategory) {
-      return Alert.alert("Select Category", "Please select a category for this income.");
+      return Alert.alert("Select Category", "Please select a source for this income.");
     }
 
     setIsSaving(true);
+    const txData = {
+      type: 'income' as const,
+      amount: numericAmount,
+      category: selectedCategory,
+      date: date.toISOString(),
+      notes: notes,
+    };
+
     try {
-      await addTransaction({
-        type: 'income',
-        amount: numericAmount,
-        category: selectedCategory,
-        date: date.toISOString(),
-        notes: notes,
-      });
-      router.back();
+      if (isEditMode) {
+        await updateTransaction(params.uuid!, txData);
+      } else {
+        await addTransaction(txData);
+      }
+      if (router.canGoBack()) {
+        router.back();
+      }
     } catch (error) {
       console.error("Failed to save income:", error);
-      Alert.alert("Error", "Could not save income.");
+      Alert.alert("Error", `Could not ${isEditMode ? 'update' : 'save'} the income.`);
     } finally {
       setIsSaving(false);
     }
@@ -99,36 +144,30 @@ export default function AddIncomeScreen() {
   return (
     <ThemedView style={styles.container}>
       <StatusBar style={theme === 'light' ? 'dark' : 'light'} />
-      <KeyboardAvoidingView 
-        style={{flex: 1}} 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
+      <KeyboardAvoidingView style={{flex: 1}} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.header}>
-          <ThemedText style={styles.headerTitle}>Add Income</ThemedText>
-          <Pressable onPress={() => router.back()} style={styles.closeButton}>
+          <ThemedText style={styles.headerTitle}>{isEditMode ? 'Edit Income' : 'Add Income'}</ThemedText>
+          <View style={styles.headerActions}>
+            {isEditMode && (
+              <Pressable onPress={handleDelete} style={styles.deleteButton}>
+                <Feather name="trash-2" size={22} color={"#FF3B30"} />
+              </Pressable>
+            )}
+            <Pressable onPress={() => router.back()} style={styles.closeButton}>
               <Feather name="x" size={24} color={textColor} />
-          </Pressable>
+            </Pressable>
+          </View>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          {/* Amount Input Card */}
           <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
             <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Amount</ThemedText>
             <View style={styles.amountContainer}>
-              <ThemedText style={styles.currencySymbol}>₹</ThemedText>
-              <TextInput
-                style={[styles.amountInput, { color: textColor }]}
-                placeholder="0"
-                placeholderTextColor={secondaryTextColor}
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="decimal-pad"
-                autoFocus={true}
-              />
+              <ThemedText style={[styles.currencySymbol, {color: secondaryTextColor}]}>₹</ThemedText>
+              <TextInput style={[styles.amountInput, { color: textColor }]} placeholder="0" placeholderTextColor={secondaryTextColor} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" autoFocus={!isEditMode} />
             </View>
           </ThemedView>
 
-          {/* Category Selection */}
           <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
             <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Source</ThemedText>
             <FlatList
@@ -139,10 +178,7 @@ export default function AddIncomeScreen() {
               renderItem={({ item }) => {
                 const isSelected = selectedCategory === item.name;
                 return (
-                  <Pressable
-                    style={[ styles.categoryButton, { backgroundColor: isSelected ? item.color : backgroundColor } ]}
-                    onPress={() => setSelectedCategory(item.name)}
-                  >
+                  <Pressable style={[ styles.categoryButton, { backgroundColor: isSelected ? item.color : backgroundColor } ]} onPress={() => setSelectedCategory(item.name)}>
                     <Feather name={item.icon} size={24} color={isSelected ? "white" : textColor} />
                     <ThemedText style={[ styles.categoryText, { color: isSelected ? "white" : secondaryTextColor } ]}>
                       {item.name}
@@ -154,7 +190,6 @@ export default function AddIncomeScreen() {
             />
           </ThemedView>
 
-          {/* Details Card */}
           <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
             <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Details</ThemedText>
             <Pressable style={[styles.detailItem, { borderBottomColor: backgroundColor }]} onPress={showDatePicker}>
@@ -163,9 +198,7 @@ export default function AddIncomeScreen() {
               </ThemedView>
               <View style={styles.detailContent}>
                 <ThemedText style={[styles.detailLabel, { color: secondaryTextColor }]}>Date</ThemedText>
-                <ThemedText style={styles.detailValue}>
-                  {date.toLocaleDateString("en-IN", { year: 'numeric', month: 'long', day: 'numeric' })}
-                </ThemedText>
+                <ThemedText style={styles.detailValue}>{date.toLocaleDateString("en-IN", { year: 'numeric', month: 'long', day: 'numeric' })}</ThemedText>
               </View>
               <Feather name="chevron-right" size={16} color={secondaryTextColor} />
             </Pressable>
@@ -175,151 +208,53 @@ export default function AddIncomeScreen() {
               </ThemedView>
               <View style={styles.detailContent}>
                 <ThemedText style={[styles.detailLabel, { color: secondaryTextColor }]}>Notes</ThemedText>
-                <TextInput
-                  style={[styles.notesInput, { color: textColor }]}
-                  placeholder="Optional"
-                  placeholderTextColor={secondaryTextColor}
-                  value={notes}
-                  onChangeText={setNotes}
-                />
+                <TextInput style={[styles.notesInput, { color: textColor }]} placeholder="Optional" placeholderTextColor={secondaryTextColor} value={notes} onChangeText={setNotes} />
               </View>
             </View>
           </ThemedView>
-        </ScrollView>
 
-        {/* MODIFIED: Save button moved outside scrollview to be sticky */}
-        <ThemedView style={styles.bottomContainer}>
+          <View style={styles.saveButtonContainer}>
             <Pressable 
-                style={[ styles.saveButton, { backgroundColor: saveButtonActiveColor }, (!amount || !selectedCategory || isSaving) && styles.saveButtonDisabled ]} 
-                onPress={handleSave} 
-                disabled={!amount || !selectedCategory || isSaving}
+              style={[ styles.saveButton, { backgroundColor: saveButtonActiveColor }, (!amount || !selectedCategory || isSaving) && styles.saveButtonDisabled ]} 
+              onPress={handleSave} 
+              disabled={!amount || !selectedCategory || isSaving}
             >
-                {isSaving ? (
+              {isSaving ? (
                 <ActivityIndicator color={saveButtonTextColor} />
-                ) : (
-                <ThemedText style={[styles.saveButtonText, { color: saveButtonTextColor }]}>Save Income</ThemedText>
-                )}
+              ) : (
+                <ThemedText style={[styles.saveButtonText, { color: saveButtonTextColor }]}>{isEditMode ? 'Update Income' : 'Save Income'}</ThemedText>
+              )}
             </Pressable>
-        </ThemedView>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </ThemedView>
   );
 }
 
-// MODIFIED: Styles updated to match other pages
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-  },
-  scrollContent: {
-    paddingBottom: 120,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  card: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 20,
-    padding: 24,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 20,
-  },
-  amountContainer: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  currencySymbol: { 
-    fontSize: 32, 
-    fontWeight: "600", 
-    marginRight: 8,
-    marginTop: 12,
-  },
-  amountInput: { 
-    fontSize: 64, 
-    fontWeight: "400",
-    flex: 1,
-  },
-  categoryButton: {
-    width: '30%',
-    aspectRatio: 1,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-    padding: 8,
-  },
-  categoryText: { 
-    fontSize: 13, 
-    fontWeight: '600',
-    marginTop: 8,
-  },
-  detailItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-  },
-  detailIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  detailContent: {
-    flex: 1,
-  },
-  detailLabel: {
-    fontSize: 14,
-  },
-  detailValue: { 
-    fontSize: 16, 
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  notesInput: { 
-    fontSize: 16, 
-    fontWeight: '500',
-    paddingVertical: 0,
-    marginTop: 2,
-  },
-  bottomContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 12,
-  },
-  saveButton: {
-    borderRadius: 16,
-    paddingVertical: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    backgroundColor: "#AEAEB2",
-  },
-  saveButtonText: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
+  container: { flex: 1 },
+  scrollContent: { paddingBottom: 40 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 60, paddingHorizontal: 20, paddingBottom: 20 },
+  headerTitle: { fontSize: 28, fontWeight: 'bold' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  deleteButton: {},
+  closeButton: { padding: 4 },
+  card: { marginHorizontal: 20, marginBottom: 20, borderRadius: 20, padding: 24, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 2 },
+  cardTitle: { fontSize: 18, fontWeight: "600", marginBottom: 20 },
+  amountContainer: { flexDirection: "row", alignItems: "flex-start" },
+  currencySymbol: { fontSize: 32, fontWeight: "600", marginRight: 8, marginTop: 12 },
+  amountInput: { fontSize: 64, fontWeight: "400", flex: 1 },
+  categoryButton: { width: '30%', aspectRatio: 1, borderRadius: 16, justifyContent: "center", alignItems: "center", marginBottom: 12, padding: 8 },
+  categoryText: { fontSize: 13, fontWeight: '600', marginTop: 8 },
+  detailItem: { flexDirection: "row", alignItems: "center", paddingVertical: 16, borderBottomWidth: 1 },
+  detailIconContainer: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  detailContent: { flex: 1 },
+  detailLabel: { fontSize: 14 },
+  detailValue: { fontSize: 16, fontWeight: '500', marginTop: 2 },
+  notesInput: { fontSize: 16, fontWeight: '500', paddingVertical: 0, marginTop: 2 },
+  saveButtonContainer: { paddingHorizontal: 20, marginTop: 10, marginBottom: 20 },
+  saveButton: { borderRadius: 16, paddingVertical: 16, justifyContent: 'center', alignItems: 'center' },
+  saveButtonDisabled: { backgroundColor: "#AEAEB2" },
+  saveButtonText: { fontSize: 18, fontWeight: "600" },
 });

@@ -119,6 +119,42 @@ const getUnsyncedTransactions = async (): Promise<Transaction[]> => {
   );
 };
 
+export const updateTransaction = async (
+  uuid: string,
+  txData: Omit<Transaction, "isSynced" | "id" | "uuid">
+): Promise<void> => {
+  // Update locally first for immediate UI feedback
+  await db.runAsync(
+    `UPDATE transactions SET type = ?, amount = ?, category = ?, date = ?, notes = ?, isSynced = 0 WHERE uuid = ?;`,
+    txData.type,
+    txData.amount,
+    txData.category,
+    txData.date,
+    txData.notes,
+    uuid
+  );
+  
+  // Trigger background sync
+  axios.post(API_URL, {
+    apiKey: API_KEY,
+    action: "updateTransaction",
+    data: { uuid, ...txData },
+  }).catch(error => console.error("Background update sync failed:", error));
+};
+
+// NEW: Function to delete a transaction
+export const deleteTransaction = async (uuid: string): Promise<void> => {
+  // Delete locally first
+  await db.runAsync(`DELETE FROM transactions WHERE uuid = ?;`, uuid);
+
+  // Trigger background sync
+  axios.post(API_URL, {
+    apiKey: API_KEY,
+    action: "deleteTransaction",
+    data: { uuid },
+  }).catch(error => console.error("Background delete sync failed:", error));
+};
+
 // NEW: Function to upload unsynced transactions
 const uploadUnsyncedTransactions = async (): Promise<void> => {
   try {

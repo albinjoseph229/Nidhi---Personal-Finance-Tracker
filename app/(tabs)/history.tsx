@@ -1,10 +1,12 @@
 // In app/(tabs)/history.tsx
 
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router'; // <-- Import useRouter
 import { StatusBar } from 'expo-status-bar';
 import React, { useMemo, useState } from 'react';
 import {
   LayoutAnimation,
+  Pressable, // <-- Import Pressable
   RefreshControl,
   SectionList,
   StyleSheet,
@@ -22,6 +24,7 @@ import { Transaction } from '../../database';
 import { useThemeColor } from '../../hooks/use-theme-color';
 
 export default function HistoryScreen() {
+  const router = useRouter(); // <-- Initialize router
   const { transactions, isSyncing, triggerFullSync } = useAppData();
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
@@ -33,7 +36,6 @@ export default function HistoryScreen() {
   const secondaryTextColor = useThemeColor({}, 'tabIconDefault');
   const separatorColor = useThemeColor({}, 'background');
 
-  // UPDATED: Data processing now calculates income, expenses, and savings
   const sections = useMemo(() => {
     const filteredTransactions = transactions.filter(tx =>
       tx.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -89,7 +91,6 @@ export default function HistoryScreen() {
     if (categoryLower.includes('entertainment')) return 'film';
     if (categoryLower.includes('health')) return 'heart';
     if (categoryLower.includes('bill')) return 'file-text';
-    // Add income icons
     if (categoryLower.includes('salary')) return 'dollar-sign';
     if (categoryLower.includes('freelance')) return 'briefcase';
     if (categoryLower.includes('investment')) return 'trending-up';
@@ -109,24 +110,31 @@ export default function HistoryScreen() {
   const renderTransactionItem = ({ item, index, section }: { item: Transaction, index: number, section: any }) => {
     const isLastItem = index === section.data.length - 1;
     return (
-      <View style={[styles.item, { backgroundColor: cardColor, borderBottomColor: separatorColor }, isLastItem && styles.lastItem]}>
-        <ThemedView style={[styles.itemIcon, { backgroundColor: separatorColor }]}>
-          <Feather 
-            name={getCategoryIcon(item.category)} 
-            size={20} 
-            color={item.type === 'income' ? '#34C759' : textColor}
-          />
-        </ThemedView>
-        <View style={styles.itemDetails}>
-          <ThemedText style={styles.itemCategory}>{item.category}</ThemedText>
-          <ThemedText style={[styles.itemDate, { color: secondaryTextColor }]} numberOfLines={1}>
-            {item.notes || new Date(item.date).toLocaleDateString('en-IN', { weekday: 'long' })}
+      <Pressable
+        onPress={() => {
+          const pathname = item.type === 'income' ? '/add-income' : '/add-expense';
+          router.push({ pathname, params: { uuid: item.uuid } });
+        }}
+      >
+        <View style={[styles.item, { backgroundColor: cardColor, borderBottomColor: separatorColor }, isLastItem && styles.lastItem]}>
+          <ThemedView style={[styles.itemIcon, { backgroundColor: separatorColor }]}>
+            <Feather 
+              name={getCategoryIcon(item.category)} 
+              size={20} 
+              color={item.type === 'income' ? '#34C759' : textColor}
+            />
+          </ThemedView>
+          <View style={styles.itemDetails}>
+            <ThemedText style={styles.itemCategory}>{item.category}</ThemedText>
+            <ThemedText style={[styles.itemDate, { color: secondaryTextColor }]} numberOfLines={1}>
+              {item.notes || new Date(item.date).toLocaleDateString('en-IN', { weekday: 'long' })}
+            </ThemedText>
+          </View>
+          <ThemedText style={[styles.itemAmount, { color: item.type === 'income' ? '#34C759' : textColor }]}>
+            {formatAmount(item.amount)}
           </ThemedText>
         </View>
-        <ThemedText style={[styles.itemAmount, { color: item.type === 'income' ? '#34C759' : textColor }]}>
-          {formatAmount(item.amount)}
-        </ThemedText>
-      </View>
+      </Pressable>
     );
   };
   
@@ -199,48 +207,22 @@ export default function HistoryScreen() {
   );
 }
 
-// Styles have been updated for the new header layout
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 10 },
   headerTitle: { fontSize: 28, fontWeight: 'bold' },
   listContentContainer: { paddingHorizontal: 20, paddingBottom: 100 },
   searchContainer: { marginBottom: 20 },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderBottomWidth: 1,
-  },
-  sectionHeaderLeft: {
-    flex: 1,
-  },
-  sectionHeaderRight: {
-    marginRight: 16,
-  },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderBottomWidth: 1 },
+  sectionHeaderLeft: { flex: 1 },
+  sectionHeaderRight: { marginRight: 16 },
   sectionTitle: { fontSize: 16, fontWeight: '600' },
   sectionSubTitle: { fontSize: 12, marginTop: 2 },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: 140, // Fixed width for alignment
-  },
-  summaryLabel: {
-    fontSize: 12,
-  },
-  summaryValue: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  summaryLabelBold: {
-    fontWeight: 'bold',
-  },
-  summaryValueBold: {
-    fontWeight: 'bold',
-  },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', width: 140 },
+  summaryLabel: { fontSize: 12 },
+  summaryValue: { fontSize: 12, fontWeight: '500' },
+  summaryLabelBold: { fontWeight: 'bold' },
+  summaryValueBold: { fontWeight: 'bold' },
   chevronIcon: {},
   item: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
   lastItem: { borderBottomWidth: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, marginBottom: 16 },
