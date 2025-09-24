@@ -1,5 +1,3 @@
-// In app/set-budget.tsx
-
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -20,14 +18,16 @@ import { ThemedText } from '../components/themed-text';
 import { ThemedView } from '../components/themed-view';
 import { useAppData } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
-import * as db from '../database';
+// REMOVED: No longer importing directly from the database
+// import * as db from '../database'; 
 import { useThemeColor } from '../hooks/use-theme-color';
 
 export default function SetBudgetModal() {
   const [amount, setAmount] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const router = useRouter();
-  const { triggerFullSync } = useAppData();
+  // CHANGED: Get the `setBudget` function from the context
+  const { setBudget } = useAppData(); 
 
   // Fetch theme and colors
   const { theme } = useTheme();
@@ -39,7 +39,7 @@ export default function SetBudgetModal() {
 
   const handleSave = async () => {
     const budgetAmount = parseFloat(amount);
-    if (isNaN(budgetAmount) || budgetAmount <= 0) {
+    if (isNaN(budgetAmount) || budgetAmount < 0) { // Allow 0 to reset budget
       Alert.alert("Invalid Input", "Please enter a valid budget amount.");
       return;
     }
@@ -49,8 +49,11 @@ export default function SetBudgetModal() {
       const date = new Date();
       const currentMonthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       
-      await db.setBudgetForMonth({ monthYear: currentMonthYear, amount: budgetAmount });
-      await triggerFullSync();
+      // CHANGED: Use the context function which handles local state and background sync correctly.
+      await setBudget({ monthYear: currentMonthYear, amount: budgetAmount });
+      
+      // REMOVED: The unnecessary full sync call.
+      // await triggerFullSync(); 
       
       router.back();
     } catch (error) {
