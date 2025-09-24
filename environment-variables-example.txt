@@ -1,10 +1,10 @@
 This file is an example. Create a .env file in the root directory and add your actual keys.
 Remember to prefix all variables with EXPO_PUBLIC_ to make them accessible in the app.
 1. Your API key for the Google Gemini API
-EXPO_PUBLIC_GEMINI_API_KEY="YOUR_GEMINI_API_KEY_HERE"
+GEMINI_API_KEY="YOUR_GEMINI_API_KEY_HERE"
 
 2. The Web app URL from your deployed Google Apps Script
-EXPO_PUBLIC_GOOGLE_SHEETS_API_URL="YOUR_GOOGLE_SHEETS_WEB_APP_URL_HERE"
+GOOGLE_SHEETS_API_URL="YOUR_GOOGLE_SHEETS_WEB_APP_URL_HERE"
 
 3. The secret key you defined inside your Code.gs file
-EXPO_PUBLIC_GOOGLE_SHEETS_API_KEY="YOUR_GOOGLE_SHEETS_SECRET_KEY_HERE"
+GOOGLE_SHEETS_API_KEY="YOUR_GOOGLE_SHEETS_SECRET_KEY_HERE"

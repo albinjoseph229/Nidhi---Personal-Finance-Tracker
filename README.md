@@ -152,7 +152,7 @@ The `Code.gs` file is located in the **root directory** of this project. Copy it
 
    * Execute as: **Me**
    * Who has access: **Anyone**
-6. Copy the deployment URL – this will be used as `EXPO_PUBLIC_GOOGLE_SHEETS_API_URL`.
+6. Copy the deployment URL – this will be used as `GOOGLE_SHEETS_API_URL`.
 
 ---
 
@@ -161,9 +161,9 @@ The `Code.gs` file is located in the **root directory** of this project. Copy it
 Create a `.env` file in the project root:
 
 ```bash
-EXPO_PUBLIC_GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
-EXPO_PUBLIC_GOOGLE_SHEETS_API_URL="YOUR_WEB_APP_URL"
-EXPO_PUBLIC_GOOGLE_SHEETS_API_KEY="YOUR_SECRET_KEY_FROM_CODE.GS"
+GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+GOOGLE_SHEETS_API_URL="YOUR_WEB_APP_URL"
+GOOGLE_SHEETS_API_KEY="YOUR_SECRET_KEY_FROM_CODE.GS"
 ```
 
 Add `.env` to `.gitignore` to keep your keys safe.
@@ -198,9 +198,9 @@ Scan the QR code with **Expo Go** to launch the app.
            "buildType": "apk"
          },
          "env": {
-           "EXPO_PUBLIC_GEMINI_API_KEY": "${secrets.EXPO_PUBLIC_GEMINI_API_KEY}",
-           "EXPO_PUBLIC_GOOGLE_SHEETS_API_URL": "${secrets.EXPO_PUBLIC_GOOGLE_SHEETS_API_URL}",
-           "EXPO_PUBLIC_GOOGLE_SHEETS_API_KEY": "${secrets.EXPO_PUBLIC_GOOGLE_SHEETS_API_KEY}"
+           "GEMINI_API_KEY": "${secrets.GEMINI_API_KEY}",
+           "GOOGLE_SHEETS_API_URL": "${secrets.GOOGLE_SHEETS_API_URL}",
+           "GOOGLE_SHEETS_API_KEY": "${secrets.GOOGLE_SHEETS_API_KEY}"
          }
        }
      }

@@ -325,36 +325,68 @@ export default function ReportsScreen() {
               { backgroundColor: backgroundColor },
             ]}
           >
-            {[
-              { key: "current", label: "This Month", icon: "calendar" },
-              { key: "yearly", label: "Yearly", icon: "bar-chart-2" },
-              { key: "monthly", label: "Trend", icon: "activity" },
-              { key: "investments", label: "Investments", icon: "trending-up" },
-            ].map((mode) => (
-              <Pressable
-                key={mode.key}
-                style={[
-                  styles.viewModeButton,
-                  viewMode === mode.key && { backgroundColor: activeColor },
-                ]}
-                onPress={() => setViewMode(mode.key as ViewMode)}
-              >
-                <Feather
-                  name={mode.icon as any}
-                  size={14}
-                  color={viewMode === mode.key ? activeTextColor : textColor}
-                />
-                <ThemedText
+            {/* Top Row of Buttons */}
+            <View style={styles.selectorRow}>
+              {[
+                { key: "current", label: "This Month", icon: "calendar" },
+                { key: "yearly", label: "Yearly", icon: "bar-chart-2" },
+                { key: "monthly", label: "Trend", icon: "activity" },
+              ].map((mode) => (
+                <Pressable
+                  key={mode.key}
                   style={[
-                    styles.viewModeText,
-                    viewMode === mode.key && { color: activeTextColor },
+                    styles.viewModeButton,
+                    viewMode === mode.key && { backgroundColor: activeColor },
                   ]}
+                  onPress={() => setViewMode(mode.key as ViewMode)}
                 >
-                  {" "}
-                  {mode.label}{" "}
-                </ThemedText>
-              </Pressable>
-            ))}
+                  <Feather
+                    name={mode.icon as any}
+                    size={14}
+                    color={viewMode === mode.key ? activeTextColor : textColor}
+                  />
+                  <ThemedText
+                    style={[
+                      styles.viewModeText,
+                      viewMode === mode.key && { color: activeTextColor },
+                    ]}
+                  >
+                    {mode.label}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </View>
+            {/* Bottom Row of Buttons */}
+            <View style={styles.selectorRow}>
+              {[{ key: "investments", label: "Investments", icon: "trending-up" }].map(
+                (mode) => (
+                  <Pressable
+                    key={mode.key}
+                    style={[
+                      styles.viewModeButton,
+                      viewMode === mode.key && { backgroundColor: activeColor },
+                    ]}
+                    onPress={() => setViewMode(mode.key as ViewMode)}
+                  >
+                    <Feather
+                      name={mode.icon as any}
+                      size={14}
+                      color={
+                        viewMode === mode.key ? activeTextColor : textColor
+                      }
+                    />
+                    <ThemedText
+                      style={[
+                        styles.viewModeText,
+                        viewMode === mode.key && { color: activeTextColor },
+                      ]}
+                    >
+                      {mode.label}
+                    </ThemedText>
+                  </Pressable>
+                )
+              )}
+            </View>
           </ThemedView>
           {(viewMode === "yearly" || viewMode === "monthly") && (
             <View style={styles.yearSelector}>
@@ -647,27 +679,31 @@ export default function ReportsScreen() {
                 { backgroundColor, marginBottom: 16, padding: 2 },
               ]}
             >
-              {[
-                { key: "expense", label: "Expenses" },
-                { key: "income", label: "Income" },
-              ].map((type) => (
-                <Pressable
-                  key={type.key}
-                  style={[
-                    styles.viewModeButton,
-                    { paddingVertical: 8 },
-                    chartDataType === type.key && {
-                      backgroundColor: cardColor,
-                    },
-                  ]}
-                  onPress={() => setChartDataType(type.key as ChartDataType)}
-                >
-                  <ThemedText style={[styles.viewModeText, { fontSize: 13 }]}>
-                    {" "}
-                    {type.label}{" "}
-                  </ThemedText>
-                </Pressable>
-              ))}
+              <View style={styles.selectorRow}>
+                {[
+                  { key: "expense", label: "Expenses" },
+                  { key: "income", label: "Income" },
+                ].map((type) => (
+                  <Pressable
+                    key={type.key}
+                    style={[
+                      styles.viewModeButton,
+                      { paddingVertical: 8 },
+                      chartDataType === type.key && {
+                        backgroundColor: cardColor,
+                      },
+                    ]}
+                    onPress={() => setChartDataType(type.key as ChartDataType)}
+                  >
+                    <ThemedText
+                      style={[styles.viewModeText, { fontSize: 13 }]}
+                    >
+                      {" "}
+                      {type.label}{" "}
+                    </ThemedText>
+                  </Pressable>
+                ))}
+              </View>
             </ThemedView>
 
             {getCurrentChartData().length > 0 ? (
@@ -829,7 +865,16 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardTitle: { fontSize: 18, fontWeight: "600", marginBottom: 16 },
-  viewModeSelector: { flexDirection: "row", borderRadius: 12, padding: 4 },
+  viewModeSelector: {
+    borderRadius: 12,
+    padding: 4,
+    flexDirection: "column",
+    gap: 4,
+  },
+  selectorRow: {
+    flexDirection: "row",
+    gap: 4,
+  },
   viewModeButton: {
     flex: 1,
     flexDirection: "row",

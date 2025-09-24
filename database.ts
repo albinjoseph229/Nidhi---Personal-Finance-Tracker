@@ -5,8 +5,8 @@ import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
 import { formatDateForSheets, parseAndNormalizeToIST } from "./utils/dateUtils";
 
-const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_SHEETS_API_KEY;
-const API_URL = process.env.EXPO_PUBLIC_GOOGLE_SHEETS_API_URL;
+const API_KEY = process.env.GOOGLE_SHEETS_API_KEY;
+const API_URL = process.env.GOOGLE_SHEETS_API_URL;
 
 // Add this check to ensure the variables are loaded
 if (!API_KEY || !API_URL) {

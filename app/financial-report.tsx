@@ -4,13 +4,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Dimensions, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '../components/themed-text';
 import { ThemedView } from '../components/themed-view';
 import { useTheme } from '../context/ThemeContext';
 import { useThemeColor } from '../hooks/use-theme-color';
 import { StructuredReport } from '../utils/geminiApi';
+
+const { width } = Dimensions.get('window');
 
 export default function FinancialReportScreen() {
   const router = useRouter();
@@ -41,7 +43,7 @@ export default function FinancialReportScreen() {
     loadReport();
   }, []);
 
-  // ADDED: Helper function to get color based on financial health status
+  // Helper function to get color based on financial health status
   const getHealthColor = (status: 'Poor' | 'Fair' | 'Good' | 'Excellent') => {
     switch (status) {
       case 'Excellent':
@@ -57,13 +59,23 @@ export default function FinancialReportScreen() {
     }
   };
 
-  // NEW COMPONENT: A card to display a single key metric
-  const MetricItem = ({ icon, label, value }: { icon: string; label:string; value: string; }) => (
+  // Helper function to get color based on profit/loss
+  const getProfitLossColor = (amount: number) => {
+    return amount >= 0 ? '#4CAF50' : '#F44336';
+  };
+
+  // A card to display a single key metric
+  const MetricItem = ({ icon, label, value, valueColor }: { 
+    icon: string; 
+    label: string; 
+    value: string; 
+    valueColor?: string; 
+  }) => (
     <View style={[styles.metricItem, { backgroundColor: separatorColor }]}>
       <Feather name={icon as any} size={20} color={secondaryTextColor} />
       <View style={styles.metricTextContainer}>
         <ThemedText style={[styles.metricLabel, { color: secondaryTextColor }]}>{label}</ThemedText>
-        <ThemedText style={styles.metricValue}>{value}</ThemedText>
+        <ThemedText style={[styles.metricValue, valueColor && { color: valueColor }]}>{value}</ThemedText>
       </View>
     </View>
   );
@@ -98,6 +110,16 @@ export default function FinancialReportScreen() {
     </View>
   );
 
+  // Investment-specific bullet point with different styling
+  const InvestmentBulletPoint = ({ text, index }: { text: string; index: number }) => (
+    <View style={styles.bulletContainer}>
+      <View style={[styles.bulletNumber, { backgroundColor: '#FF9800' + '20' }]}>
+        <Feather name="trending-up" size={12} color="#FF9800" />
+      </View>
+      <ThemedText style={styles.bulletText}>{text}</ThemedText>
+    </View>
+  );
+
   return (
     <ThemedView style={styles.container}>
       <StatusBar style={theme === 'light' ? 'dark' : 'light'} />
@@ -107,7 +129,7 @@ export default function FinancialReportScreen() {
         <View>
           <ThemedText style={styles.headerTitle}>Financial Report</ThemedText>
           <ThemedText style={[styles.headerSubtitle, { color: secondaryTextColor }]}>
-            AI-Powered Insights
+            AI-Powered Insights & Investment Analysis
           </ThemedText>
         </View>
         <Pressable
@@ -127,7 +149,7 @@ export default function FinancialReportScreen() {
             <View style={[styles.loadingCard, { backgroundColor: cardColor }]}>
               <Feather name="refresh-cw" size={32} color={secondaryTextColor} />
               <ThemedText style={[styles.loadingText, { color: secondaryTextColor }]}>
-                Analyzing your financial data...
+                Analyzing your financial and investment data...
               </ThemedText>
             </View>
           </View>
@@ -150,7 +172,7 @@ export default function FinancialReportScreen() {
               </ThemedText>
             </SectionCard>
 
-            {/* ADDED: Financial Health & Key Metrics Section */}
+            {/* Financial Health & Key Metrics Section */}
             {report.financialHealth && report.keyMetrics && (
               <SectionCard
                 icon="shield"
@@ -179,10 +201,30 @@ export default function FinancialReportScreen() {
 
                 {/* Key Metrics */}
                 <View style={styles.metricsGrid}>
-                  <MetricItem icon="arrow-down-circle" label="Total Income" value={`₹${report.keyMetrics.totalIncome.toFixed(2)}`} />
-                  <MetricItem icon="arrow-up-circle" label="Total Expenses" value={`₹${report.keyMetrics.totalExpenses.toFixed(2)}`} />
-                  <MetricItem icon="briefcase" label="Net Savings" value={`₹${report.keyMetrics.netSavings.toFixed(2)}`} />
-                  <MetricItem icon="trending-up" label="Savings Rate" value={`${report.keyMetrics.savingsRate.toFixed(1)}%`} />
+                  <MetricItem 
+                    icon="arrow-down-circle" 
+                    label="Total Income" 
+                    value={`₹${report.keyMetrics.totalIncome.toFixed(2)}`} 
+                    valueColor="#4CAF50"
+                  />
+                  <MetricItem 
+                    icon="arrow-up-circle" 
+                    label="Total Expenses" 
+                    value={`₹${report.keyMetrics.totalExpenses.toFixed(2)}`} 
+                    valueColor="#F44336"
+                  />
+                  <MetricItem 
+                    icon="briefcase" 
+                    label="Net Savings" 
+                    value={`₹${report.keyMetrics.netSavings.toFixed(2)}`} 
+                    valueColor={getProfitLossColor(report.keyMetrics.netSavings)}
+                  />
+                  <MetricItem 
+                    icon="trending-up" 
+                    label="Savings Rate" 
+                    value={`${report.keyMetrics.savingsRate}%`} 
+                    valueColor={report.keyMetrics.savingsRate > 20 ? "#4CAF50" : report.keyMetrics.savingsRate > 10 ? "#FFC107" : "#F44336"}
+                  />
                 </View>
                 <View style={[styles.topCategoryBanner, { backgroundColor: separatorColor }]}>
                   <Feather name="shopping-bag" size={16} color={secondaryTextColor} />
@@ -193,78 +235,177 @@ export default function FinancialReportScreen() {
               </SectionCard>
             )}
 
-            {/* Key Insights Section */}
-            <SectionCard
-              icon="search" // MODIFIED: More relevant icon
-              title="Key Insights"
-              color="#2196F3"
-            >
-              <View style={styles.insightsGrid}>
-                {/* MODIFIED: Mapping with more distinct icons */}
-                {report.insights.map((insight, index) => {
-                  const insightIcons = ['activity', 'eye', 'bar-chart-2'];
-                  const insightTitles = ['Spending Pattern', 'Financial Habit', 'Notable Trend'];
-                  return (
-                    <View key={index} style={styles.insightItem}>
-                      <View style={[styles.insightIcon, { backgroundColor: '#2196F3' + '15' }]}>
-                        <Feather
-                          name={insightIcons[index % insightIcons.length] as any}
-                          size={16}
-                          color="#2196F3"
-                        />
-                      </View>
-                      <View style={styles.insightContent}>
-                        <ThemedText style={styles.insightTitle}>
-                          {insightTitles[index % insightTitles.length]}
-                        </ThemedText>
-                        <ThemedText style={styles.insightText}>
-                          {insight}
-                        </ThemedText>
-                      </View>
+            {/* Investment Portfolio Section */}
+            {report.investmentMetrics && (
+              <SectionCard
+                icon="trending-up"
+                title="Investment Portfolio"
+                color="#9C27B0"
+              >
+                <View style={styles.investmentSummary}>
+                  <View style={styles.investmentHeader}>
+                    <View style={[styles.performanceIndicator, { backgroundColor: getProfitLossColor(report.investmentMetrics.totalProfitLoss) + '15' }]}>
+                      <Feather 
+                        name={report.investmentMetrics.totalProfitLoss >= 0 ? "trending-up" : "trending-down"} 
+                        size={20} 
+                        color={getProfitLossColor(report.investmentMetrics.totalProfitLoss)} 
+                      />
+                      <ThemedText style={[styles.performanceText, { color: getProfitLossColor(report.investmentMetrics.totalProfitLoss) }]}>
+                        {report.investmentMetrics.profitLossPercentage >= 0 ? '+' : ''}{report.investmentMetrics.profitLossPercentage}%
+                      </ThemedText>
                     </View>
-                  );
-                })}
+                    <View style={styles.investmentCounts}>
+                      <ThemedText style={[styles.investmentCountText, { color: secondaryTextColor }]}>
+                        {report.investmentMetrics.activeInvestments} Active • {report.investmentMetrics.soldInvestments} Sold
+                      </ThemedText>
+                    </View>
+                  </View>
+
+                  {/* Investment Metrics Grid */}
+                  <View style={styles.metricsGrid}>
+                    <MetricItem 
+                      icon="dollar-sign" 
+                      label="Total Investment" 
+                      value={`₹${report.investmentMetrics.totalInvestment.toFixed(2)}`} 
+                      valueColor="#9C27B0"
+                    />
+                    <MetricItem 
+                      icon="briefcase" 
+                      label="Current Value" 
+                      value={`₹${report.investmentMetrics.currentValue.toFixed(2)}`} 
+                      valueColor="#2196F3"
+                    />
+                    <MetricItem 
+                      icon="activity" 
+                      label="Profit/Loss" 
+                      value={`₹${report.investmentMetrics.totalProfitLoss.toFixed(2)}`} 
+                      valueColor={getProfitLossColor(report.investmentMetrics.totalProfitLoss)}
+                    />
+                    <MetricItem 
+                      icon="pie-chart" 
+                      label="Diversification" 
+                      value={`${report.investmentMetrics.portfolioDiversification}/100`} 
+                      valueColor={report.investmentMetrics.portfolioDiversification > 75 ? "#4CAF50" : report.investmentMetrics.portfolioDiversification > 50 ? "#FFC107" : "#F44336"}
+                    />
+                  </View>
+
+                  {/* Best/Worst Performing Types */}
+                  <View style={styles.performanceTypeContainer}>
+                    <View style={styles.performanceTypeItem}>
+                      <Feather name="award" size={16} color="#4CAF50" />
+                      <ThemedText style={[styles.performanceTypeLabel, { color: secondaryTextColor }]}>Best Performing</ThemedText>
+                      <ThemedText style={[styles.performanceTypeValue, { color: '#4CAF50' }]}>
+                        {report.investmentMetrics.bestPerformingType}
+                      </ThemedText>
+                    </View>
+                    <View style={[styles.divider, { backgroundColor: separatorColor }]} />
+                    <View style={styles.performanceTypeItem}>
+                      <Feather name="trending-down" size={16} color="#F44336" />
+                      <ThemedText style={[styles.performanceTypeLabel, { color: secondaryTextColor }]}>Needs Attention</ThemedText>
+                      <ThemedText style={[styles.performanceTypeValue, { color: '#F44336' }]}>
+                        {report.investmentMetrics.worstPerformingType}
+                      </ThemedText>
+                    </View>
+                  </View>
+                </View>
+              </SectionCard>
+            )}
+
+            {/* Financial Insights Section */}
+            <SectionCard
+              icon="lightbulb"
+              title="Key Insights"
+              color="#FF9800"
+            >
+              <View style={styles.insightsContainer}>
+                {report.insights.map((insight, index) => (
+                  <BulletPoint key={index} text={insight} index={index} />
+                ))}
               </View>
             </SectionCard>
 
-            {/* Savings Tips Section */}
+            {/* Investment Insights Section (if available) */}
+            {report.investmentInsights && report.investmentInsights.length > 0 && (
+              <SectionCard
+                icon="trending-up"
+                title="Investment Insights"
+                color="#9C27B0"
+              >
+                <View style={styles.insightsContainer}>
+                  {report.investmentInsights.map((insight, index) => (
+                    <InvestmentBulletPoint key={index} text={insight} index={index} />
+                  ))}
+                </View>
+              </SectionCard>
+            )}
+
+            {/* Financial Tips Section */}
             <SectionCard
-              icon="target"
-              title="Personalized Recommendations"
-              color="#FF9800"
+              icon="bookmark"
+              title="Recommendations"
+              color="#2196F3"
             >
               <View style={styles.tipsContainer}>
                 {report.tips.map((tip, index) => (
-                  <BulletPoint key={index} text={tip} index={index} />
+                  <View key={index} style={styles.tipItem}>
+                    <View style={[styles.tipIcon, { backgroundColor: '#2196F3' + '20' }]}>
+                      <Feather name="check-circle" size={14} color="#2196F3" />
+                    </View>
+                    <ThemedText style={styles.tipText}>{tip}</ThemedText>
+                  </View>
                 ))}
-              </View>
-              <View style={[styles.tipsBanner, { backgroundColor: '#FF9800' + '10', borderColor: '#FF9800' + '30' }]}>
-                <Feather name="zap" size={16} color="#FF9800" />
-                <ThemedText style={[styles.tipsBannerText, { color: '#FF9800' }]}>
-                  Implementing these tips could boost your savings significantly!
-                </ThemedText>
               </View>
             </SectionCard>
 
-            {/* Action Items Footer */}
-            <View style={[styles.actionFooter, { backgroundColor: cardColor, shadowColor: textColor }]}>
-              <View style={styles.actionHeader}>
-                <Feather name="check-circle" size={20} color={accentColor} />
-                <ThemedText style={styles.actionTitle}>Next Steps</ThemedText>
+            {/* Investment Tips Section (if available) */}
+            {report.investmentTips && report.investmentTips.length > 0 && (
+              <SectionCard
+                icon="target"
+                title="Investment Recommendations"
+                color="#FF5722"
+              >
+                <View style={styles.tipsContainer}>
+                  {report.investmentTips.map((tip, index) => (
+                    <View key={index} style={styles.tipItem}>
+                      <View style={[styles.tipIcon, { backgroundColor: '#FF5722' + '20' }]}>
+                        <Feather name="arrow-up-right" size={14} color="#FF5722" />
+                      </View>
+                      <ThemedText style={styles.tipText}>{tip}</ThemedText>
+                    </View>
+                  ))}
+                </View>
+              </SectionCard>
+            )}
+
+            {/* Footer */}
+            <View style={styles.footer}>
+              <View style={[styles.footerCard, { backgroundColor: cardColor }]}>
+                <Feather name="info" size={20} color={secondaryTextColor} />
+                <ThemedText style={[styles.footerText, { color: secondaryTextColor }]}>
+                  This report is generated using AI analysis of your financial data. 
+                  Always consult with a qualified financial advisor for personalized advice.
+                </ThemedText>
               </View>
-              <ThemedText style={styles.actionText}>
-                Review your largest spending categories and try implementing the first recommendation this week.
-              </ThemedText>
             </View>
           </>
         ) : (
-          <View style={styles.emptyContainer}>
-            <View style={[styles.emptyCard, { backgroundColor: cardColor }]}>
+          <View style={styles.noReportContainer}>
+            <View style={[styles.noReportCard, { backgroundColor: cardColor }]}>
               <Feather name="file-text" size={48} color={secondaryTextColor} />
-              <ThemedText style={styles.emptyTitle}>No Report Available</ThemedText>
-              <ThemedText style={[styles.emptyText, { color: secondaryTextColor }]}>
-                Generate your first financial report by adding some transactions and requesting an analysis.
+              <ThemedText style={[styles.noReportTitle, { color: textColor }]}>
+                No Report Available
               </ThemedText>
+              <ThemedText style={[styles.noReportText, { color: secondaryTextColor }]}>
+                Generate a financial report from your transactions to see insights here.
+              </ThemedText>
+              <Pressable
+                onPress={() => router.back()}
+                style={[styles.backButton, { backgroundColor: accentColor }]}
+              >
+                <ThemedText style={[styles.backButtonText, { color: 'white' }]}>
+                  Go Back
+                </ThemedText>
+              </Pressable>
             </View>
           </View>
         )}
@@ -275,156 +416,146 @@ export default function FinancialReportScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 20,
     paddingTop: 60,
-    paddingHorizontal: 24,
     paddingBottom: 20,
-    borderBottomWidth: 1
+    borderBottomWidth: 1,
   },
   headerTitle: {
-    fontSize: 32,
-    fontWeight: '700',
-    letterSpacing: -0.5
+    fontSize: 28,
+    fontWeight: 'bold',
   },
   headerSubtitle: {
     fontSize: 14,
-    fontWeight: '500',
-    marginTop: 2,
-    opacity: 0.8
+    marginTop: 4,
   },
   closeButton: {
-    padding: 8,
-    borderRadius: 20,
-    opacity: 0.8
-  },
-  scrollContent: {
-    padding: 24,
-    paddingBottom: 100
-  },
-  titleContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-    paddingBottom: 16
-  },
-  reportTitle: {
-    fontSize: 26,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 8
-  },
-  titleUnderline: {
-    width: 60,
-    height: 3,
-    borderRadius: 2
-  },
-  sectionCard: {
-    borderRadius: 16,
-    marginBottom: 20,
-    shadowOffset: { width: 0, height: 4 }, // MODIFIED: Increased shadow
-    shadowOpacity: 0.08, // MODIFIED: Increased shadow
-    shadowRadius: 12, // MODIFIED: Increased shadow
-    elevation: 5
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1
-  },
-  iconContainer: {
     width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  titleContainer: {
+    marginTop: 24,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  reportTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  titleUnderline: {
+    width: 60,
+    height: 3,
+    marginTop: 8,
+    borderRadius: 2,
+  },
+  sectionCard: {
+    borderRadius: 16,
+    marginBottom: 20,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  iconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    flex: 1, // MODIFIED: Added flex: 1 to allow text wrapping
-    flexWrap: 'wrap' // MODIFIED: Explicitly allow wrapping
   },
   sectionContent: {
     padding: 20,
-    paddingTop: 16
   },
   summaryText: {
     fontSize: 16,
-    lineHeight: 26,
-    fontWeight: '400',
-    textAlign: 'justify'
+    lineHeight: 24,
   },
-  // ADDED: New styles for Health Score section
   healthContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20
+    marginBottom: 24,
   },
   scoreCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 8,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 20
+    marginRight: 20,
   },
   scoreText: {
-    fontSize: 36,
-    fontWeight: '700'
+    fontSize: 24,
+    fontWeight: 'bold',
   },
   scoreLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
-    marginTop: -4
+    marginTop: 2,
   },
   concernsContainer: {
-    flex: 1
+    flex: 1,
   },
   concernsTitle: {
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
-    opacity: 0.8
   },
   concernItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 4
+    marginBottom: 6,
   },
   concernText: {
+    flex: 1,
     fontSize: 14,
     lineHeight: 20,
-    flex: 1
   },
-  // ADDED: New styles for Key Metrics section
   metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 12,
+    marginHorizontal: -6,
     marginBottom: 16,
   },
   metricItem: {
+    width: (width - 72) / 2,
+    margin: 6,
+    padding: 16,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    width: '48%', // Two items per row
-    padding: 12,
-    borderRadius: 12,
   },
   metricTextContainer: {
-    marginLeft: 10,
+    marginLeft: 12,
+    flex: 1,
   },
   metricLabel: {
     fontSize: 12,
-    fontWeight: '500',
     marginBottom: 2,
   },
   metricValue: {
@@ -436,52 +567,71 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderRadius: 8,
-    marginTop: 4,
   },
   topCategoryText: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 14,
     marginLeft: 8,
     flex: 1,
   },
-  insightsGrid: {
-    gap: 16
+  investmentSummary: {
+    marginBottom: 16,
   },
-  insightItem: {
+  investmentHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start'
-  },
-  insightIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginRight: 12,
-    marginTop: 2
+    marginBottom: 20,
   },
-  insightContent: {
-    flex: 1
+  performanceIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
-  insightTitle: {
+  performanceText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 6,
+  },
+  investmentCounts: {
+    alignItems: 'flex-end',
+  },
+  investmentCountText: {
+    fontSize: 14,
+  },
+  performanceTypeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  performanceTypeItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  divider: {
+    width: 1,
+    height: 40,
+    marginHorizontal: 16,
+  },
+  performanceTypeLabel: {
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  performanceTypeValue: {
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 4,
-    opacity: 0.8
   },
-  insightText: {
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '400',
-    flexWrap: 'wrap'
-  },
-  tipsContainer: {
-    marginBottom: 16
+  insightsContainer: {
+    gap: 16,
   },
   bulletContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 16
   },
   bulletNumber: {
     width: 24,
@@ -490,95 +640,100 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
-    marginTop: 1
+    marginTop: 2,
   },
   bulletNumberText: {
     fontSize: 12,
-    fontWeight: '600'
+    fontWeight: '600',
   },
   bulletText: {
+    flex: 1,
     fontSize: 15,
     lineHeight: 22,
-    flex: 1,
-    fontWeight: '400',
-    flexWrap: 'wrap'
   },
-  tipsBanner: {
+  tipsContainer: {
+    gap: 16,
+  },
+  tipItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1
   },
-  tipsBannerText: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginLeft: 8,
-    flex: 1,
-    flexWrap: 'wrap'
-  },
-  actionFooter: {
-    borderRadius: 16,
-    padding: 20,
-    marginTop: 8,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3
-  },
-  actionHeader: {
-    flexDirection: 'row',
+  tipIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8
+    marginRight: 12,
+    marginTop: 2,
   },
-  actionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8
+  tipText: {
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 22,
   },
-  actionText: {
-    fontSize: 14,
-    lineHeight: 20,
-    opacity: 0.8,
-    flexWrap: 'wrap'
+  footer: {
+    marginTop: 20,
+  },
+  footerCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 16,
+    borderRadius: 12,
+  },
+  footerText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    marginLeft: 12,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 80
+    paddingTop: 100,
   },
   loadingCard: {
-    padding: 40,
+    padding: 32,
     borderRadius: 16,
-    alignItems: 'center'
+    alignItems: 'center',
   },
   loadingText: {
     fontSize: 16,
     marginTop: 16,
-    textAlign: 'center'
+    textAlign: 'center',
   },
-  emptyContainer: {
+  noReportContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 80
+    paddingTop: 100,
   },
-  emptyCard: {
-    padding: 40,
+  noReportCard: {
+    padding: 32,
     borderRadius: 16,
     alignItems: 'center',
-    maxWidth: 300
+    maxWidth: 300,
   },
-  emptyTitle: {
+  noReportTitle: {
     fontSize: 20,
     fontWeight: '600',
     marginTop: 16,
-    marginBottom: 8
+    marginBottom: 8,
   },
-  emptyText: {
-    fontSize: 15,
+  noReportText: {
+    fontSize: 14,
     textAlign: 'center',
-    lineHeight: 22
-  }
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  backButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 20,
+  },
+  backButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });
