@@ -1,7 +1,8 @@
 // In app/(tabs)/profile.tsx
 import { Feather } from '@expo/vector-icons';
-import React from 'react';
-import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 // Import our themed components and hooks
 import { ThemedText } from '../../components/themed-text';
@@ -9,23 +10,51 @@ import { ThemedView } from '../../components/themed-view';
 import { useAppData } from '../../context/AppContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useThemeColor } from '../../hooks/use-theme-color';
+import { generateFinancialReport } from '../../utils/pdfExport';
 
 export default function ProfileScreen() {
   const { theme, toggleTheme } = useTheme();
-  const { isSyncing, triggerFullSync } = useAppData();
+  const { isSyncing, triggerFullSync, transactions } = useAppData();
+  const [isExporting, setIsExporting] = useState(false);
 
+  // Get dynamic colors for styling
   const cardColor = useThemeColor({}, 'card');
   const textColor = useThemeColor({}, 'text');
   const secondaryTextColor = useThemeColor({}, 'tabIconDefault');
+  const separatorColor = useThemeColor({}, 'background');
 
-  const handleExportData = () => {
-    Alert.alert("Coming Soon", "The data export feature will be available in a future update.");
+  const handleExportData = async () => {
+    if (transactions.length === 0) {
+      return Alert.alert("No Data", "There are no transactions to export.");
+    }
+
+    Alert.alert(
+      "Export Financial Report",
+      `This will generate a detailed PDF report for all your data. Continue?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Export", 
+          onPress: async () => {
+            setIsExporting(true);
+            try {
+              await generateFinancialReport(transactions);
+            } catch (error) {
+              Alert.alert("Error", "Failed to export report. Please try again.");
+              console.error('Export failed:', error);
+            } finally {
+              setIsExporting(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleFullSync = async () => {
     Alert.alert(
       "Full Data Sync",
-      "This will download all data from the server and may take some time. Do you want to continue?",
+      "This will download the latest data from the server. Do you want to continue?",
       [
         { text: "Cancel", style: "cancel" },
         { 
@@ -35,7 +64,7 @@ export default function ProfileScreen() {
               await triggerFullSync();
               Alert.alert("Success", "Full sync completed successfully!");
             } catch (error) {
-              Alert.alert("Error", "Full sync failed. Please try again.");
+              Alert.alert("Error", "Full sync failed. Please check your connection and try again.");
             }
           }
         }
@@ -45,6 +74,7 @@ export default function ProfileScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <StatusBar style={theme === 'light' ? 'dark' : 'light'} />
       <View style={styles.header}>
         <ThemedText style={styles.headerTitle}>Settings</ThemedText>
       </View>
@@ -67,33 +97,43 @@ export default function ProfileScreen() {
         <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Data</ThemedText>
         
         <Pressable 
-          style={[styles.row, { borderBottomColor: secondaryTextColor, borderBottomWidth: 0.5 }]} 
+          style={[styles.row, { borderBottomColor: separatorColor }]} 
           onPress={handleFullSync}
           disabled={isSyncing}
         >
           <Feather 
             name="refresh-cw" 
             size={20} 
-            style={[
-              styles.rowIcon, 
-              { color: isSyncing ? secondaryTextColor : textColor }
-            ]} 
+            style={[styles.rowIcon, { color: secondaryTextColor }]} 
           />
           <ThemedText style={[styles.rowLabel, { opacity: isSyncing ? 0.5 : 1 }]}>
             {isSyncing ? "Syncing..." : "Full Data Sync"}
           </ThemedText>
-          <Feather 
-            name="chevron-right" 
-            size={16} 
-            color={secondaryTextColor} 
-            style={{ opacity: isSyncing ? 0.5 : 1 }}
-          />
+          {isSyncing ? (
+            <ActivityIndicator color={secondaryTextColor} />
+          ) : (
+            <Feather name="chevron-right" size={16} color={secondaryTextColor} />
+          )}
         </Pressable>
 
-        <Pressable style={[styles.row, { borderBottomWidth: 0 }]} onPress={handleExportData}>
-          <Feather name="download" size={20} style={[styles.rowIcon, { color: secondaryTextColor }]} />
-          <ThemedText style={styles.rowLabel}>Export Data</ThemedText>
-          <Feather name="chevron-right" size={16} color={secondaryTextColor} />
+        <Pressable 
+          style={[styles.row, { borderBottomWidth: 0 }]} 
+          onPress={handleExportData}
+          disabled={isExporting}
+        >
+          <Feather 
+            name="download" 
+            size={20} 
+            style={[styles.rowIcon, { color: secondaryTextColor }]} 
+          />
+          <ThemedText style={[styles.rowLabel, { opacity: isExporting ? 0.5 : 1 }]}>
+            {isExporting ? "Exporting..." : "Export Financial Report"}
+          </ThemedText>
+          {isExporting ? (
+            <ActivityIndicator color={secondaryTextColor} />
+          ) : (
+            <Feather name="chevron-right" size={16} color={secondaryTextColor} />
+          )}
         </Pressable>
       </ThemedView>
     </ThemedView>
@@ -115,7 +155,7 @@ const styles = StyleSheet.create({
     elevation: 2 
   },
   cardTitle: { fontSize: 14, fontWeight: '500', paddingTop: 16, paddingBottom: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1 },
   rowIcon: { marginRight: 16 },
   rowLabel: { fontSize: 16, flex: 1 },
 });
