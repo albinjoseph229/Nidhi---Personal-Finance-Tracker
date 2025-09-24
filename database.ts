@@ -41,23 +41,68 @@ const queueUnsyncedUpload = () => {
 // --- NEW: Secure API communication function ---
 async function callSheetsApi(method: 'GET' | 'POST', params: any): Promise<any> {
   if (!BACKEND_URL) {
+    console.error('BACKEND_URL is missing. Current value:', BACKEND_URL);
     throw new Error("Backend URL is not configured in .env file. Please set EXPO_PUBLIC_BACKEND_URL");
   }
-  
-  const url = `${BACKEND_URL}/api/sheets${params.queryString || ''}`;
-  
-  const response = await fetch(url, {
-    method: method,
-    headers: { 'Content-Type': 'application/json' },
-    ...(method === 'POST' && { body: JSON.stringify(params) }),
-  });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(errorData.error || `API call failed with status ${response.status}`);
+  const CLIENT_API_KEY = process.env.EXPO_PUBLIC_CLIENT_API_KEY;
+  console.log('CLIENT_API_KEY loaded:', CLIENT_API_KEY ? `${CLIENT_API_KEY.substring(0, 8)}...` : 'undefined');
+  if (!CLIENT_API_KEY) {
+    throw new Error("Client API key is not configured. Please set EXPO_PUBLIC_CLIENT_API_KEY in .env file");
   }
-  return response.json();
+
+  const url = `${BACKEND_URL}/api/sheets${params.queryString || ''}`;
+  console.log(`Calling backend API: ${method} ${url}`);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': CLIENT_API_KEY,
+      },
+      ...(method === 'POST' && { body: JSON.stringify(params) }),
+      signal: controller.signal, // ✅ attach AbortController
+    });
+
+    clearTimeout(timeoutId);
+
+    console.log(`Response status: ${response.status}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API Error Response:', errorText);
+
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { error: `Server error: ${response.status} ${response.statusText}` };
+      }
+
+      throw new Error(errorData.error || `API call failed with status ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('API call successful');
+    return result;
+
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error("Network timeout - request took longer than 10 seconds");
+    }
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.error('Network error - cannot reach backend:', error.message);
+      throw new Error(`Network error: Cannot reach backend at ${BACKEND_URL}. Check your internet connection and backend URL.`);
+    }
+    console.error('API call error:', error);
+    throw error;
+  }
 }
+
 
 export interface Transaction {
   id?: number;
