@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://storage.googleapis.com/gemini-prod-us-east1-9535/v1/a0/b4/5d/image_a0b45d.png?Expires=1727376000&GoogleAccessId=gemini-prod-us-east1-9535%40gemini-v1-383211.iam.gserviceaccount.com&Signature=W%2BO9y3G5l9f6o%2Bw7y////////wE%3D" alt="Nidhi App Banner" width="800"/>
+<img src="https://storage.googleapis.com/gemini-prod-us-east1-9535/v1/a0/b4/5d/image_a0b45d.png?Expires=1727376000&GoogleAccessId=gemini-prod-us-east1-9535%40gemini-v1-383211.iam.gserviceaccount.com&Signature=W%2BO9y3G5l9f6o%2Bw7y////////wE%3D" alt="Nidhi App Banner" width="800"/>
 </p>
 
 <h1 align="center">Nidhi - Personal Finance Tracker</h1>
@@ -9,27 +9,58 @@ A comprehensive, cross-platform personal finance tracker built with <b>React Nat
 </p>
 
 <p align="center">
-  <a href="https://opensource.org/licenses/MIT">
-    <img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg"/>
-  </a>
-  <a href="https://github.com/your-github-username/nidhi/stargazers">
-    <img alt="GitHub stars" src="https://img.shields.io/github/stars/your-github-username/nidhi?style=social"/>
-  </a>
+<a href="https://opensource.org/licenses/MIT">
+<img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg"/>
+</a>
+<a href="https://github.com/your-github-username/nidhi/stargazers">
+<img alt="GitHub stars" src="https://img.shields.io/github/stars/your-github-username/nidhi?style=social"/>
+</a>
 </p>
 
 ---
 
 ## ✨ Features
 
-* **Income & Expense Tracking** – Add, edit, and delete both income and expense transactions.
-* **Monthly Budgeting** – Set monthly budgets and track spending in real-time.
-* **Detailed History** – View transactions grouped by month with income, expenses, and savings summaries.
-* **Advanced Reports** – Visualize data with dynamic pie and bar charts.
-* **AI-Powered Analysis** – Get personalized financial wellness reports using the **Google Gemini API**.
-* **PDF & CSV Export** – Export full transaction history.
-* **Cloud Sync** – Securely sync data to your private **Google Sheet**.
-* **Offline Support** – Works offline and syncs when reconnected.
-* **Light & Dark Mode** – Consistent, theme-aware design.
+* 💵 **Income & Expense Tracking** – Add, edit, and delete both income and expense transactions.
+* 📅 **Monthly Budgeting** – Set monthly budgets and track spending in real-time.
+* 🧾 **Detailed History** – View transactions grouped by month with income, expenses, and savings summaries.
+* 📊 **Advanced Reports** – Visualize data with dynamic pie and bar charts.
+* 🤖 **AI-Powered Analysis** – Get personalized financial wellness reports using the Google Gemini API.
+* 📑 **PDF & CSV Export** – Export full transaction history as PDF or CSV.
+* ☁️ **Cloud Sync** – Securely sync data to your private Google Sheet.
+* 📴 **Offline Support** – Works offline and syncs when reconnected.
+* 🌙 **Light & Dark Mode** – Consistent, theme-aware design.
+* 🔐 **Secure Authentication** – Sign in securely with Google.
+
+---
+
+## 📸 Screenshots
+
+Here's a sneak peek of **Nidhi** in action. The app supports a clean, consistent design in both light and dark modes.
+
+### Light Mode
+
+\[Your light mode screenshot here]
+
+### Dark Mode
+
+\[Your dark mode screenshot here]
+
+### Home Screen
+
+\[Another light mode screenshot here]
+
+### Reports Screen
+
+\[Another dark mode screenshot here]
+
+### History Screen
+
+\[History screen screenshot here]
+
+### Add Expense Screen
+
+\[Add expense screen screenshot here]
 
 ---
 
@@ -48,9 +79,9 @@ A comprehensive, cross-platform personal finance tracker built with <b>React Nat
 
 ### 1. Prerequisites
 
-* [Node.js (LTS)](https://nodejs.org/)
-* [Git](https://git-scm.com/)
-* [Expo account](https://expo.dev/signup)
+* Node.js (LTS)
+* Git
+* Expo account
 * Expo Go app (iOS/Android)
 
 ### 2. Local Installation
@@ -74,9 +105,9 @@ eas login
 
 #### Step 3.1: Create the Google Sheet
 
-1. Go to [Google Sheets](https://sheets.google.com) and create a new spreadsheet.
+1. Go to Google Sheets and create a new spreadsheet.
 2. Rename it: **Nidhi Finance Tracker**.
-3. Create two tabs: `Transactions` and `Budgets`.
+3. Create two tabs: **Transactions** and **Budgets**.
 4. Add headers:
 
 **Transactions Sheet**
@@ -94,22 +125,22 @@ eas login
 3. Replace `YOUR_GOOGLE_SHEET_ID_HERE` with your Sheet ID.
 4. Deploy as Web App:
 
-   * Description: `Nidhi API v1`
+   * Description: **Nidhi API v1**
    * Execute as: **Me**
    * Who has access: **Anyone**
-5. Copy the Web App URL.
+5. Copy the **Web App URL**.
 
 ### 4. Gemini API Key Setup
 
-* Go to [Google AI Studio](https://aistudio.google.com/).
-* Generate API Key.
-* Copy the key.
+1. Go to **Google AI Studio**.
+2. Generate an API Key.
+3. Copy the key.
 
 ### 5. Environment Variables
 
-Create `.env` in project root:
+Create a `.env` file in project root:
 
-```env
+```bash
 EXPO_PUBLIC_GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 EXPO_PUBLIC_GOOGLE_SHEETS_API_URL="YOUR_WEB_APP_URL"
 EXPO_PUBLIC_GOOGLE_SHEETS_API_KEY="YOUR_SECRET_KEY_FROM_CODE.GS"
@@ -123,7 +154,7 @@ Add `.env` to `.gitignore`.
 npx expo start
 ```
 
-Scan QR with Expo Go.
+Scan the QR code with **Expo Go**.
 
 ---
 
@@ -137,7 +168,7 @@ eas secret:push --scope project --env-file ./.env
 
 (or use `eas env:push` if prompted)
 
-### 2. Configure `eas.json`
+### 2. Configure eas.json
 
 ```json
 {
@@ -163,7 +194,7 @@ eas secret:push --scope project --env-file ./.env
 eas build --platform android --profile preview
 ```
 
-Download the APK from EAS build page.
+Download the APK from the **EAS build page**.
 
 ---
 
@@ -171,14 +202,12 @@ Download the APK from EAS build page.
 
 Contributions are welcome! 🎉
 
-* Fork the repo
-* Create a feature branch
-* Submit a Pull Request
+1. Fork the repo
+2. Create a feature branch
+3. Submit a Pull Request
 
 ---
 
 ## 📜 License
 
-This project is licensed under the [MIT License](LICENSE).
-
----
+This project is licensed under the **MIT License**.
