@@ -27,7 +27,7 @@ interface WeeklyDataPoint {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { transactions, budgets, isSyncing, triggerFullSync } = useAppData();
+  const { transactions, budgets, isSyncing, triggerUploadSync } = useAppData();
   const { theme } = useTheme();
 
   const cardColor = useThemeColor({}, "card");
@@ -146,7 +146,7 @@ export default function HomeScreen() {
   }, [transactions]);
 
   const onRefresh = async () => {
-    await triggerFullSync();
+    await triggerUploadSync();
   };
 
   const formatAmount = (amount: number) => {

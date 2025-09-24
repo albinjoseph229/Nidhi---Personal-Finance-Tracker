@@ -27,7 +27,7 @@ import { useThemeColor } from '../../hooks/use-theme-color';
 
 export default function HistoryScreen() {
   const router = useRouter();
-  const { transactions, isSyncing, triggerFullSync } = useAppData();
+  const { transactions, isSyncing, triggerUploadSync } = useAppData();
   const [searchQuery, setSearchQuery] = useState('');
   // --- CHANGE 1: State now tracks EXPANDED sections, starts empty (all collapsed) ---
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
@@ -105,7 +105,7 @@ export default function HistoryScreen() {
   };
 
   const onRefresh = async () => {
-    await triggerFullSync();
+    await triggerUploadSync();
   };
 
   const getCategoryIcon = (category: string) => {

@@ -64,7 +64,7 @@ type ChartType = "pie" | "bar";
 type ChartDataType = "income" | "expense";
 
 export default function ReportsScreen() {
-  const { transactions, budgets, isSyncing, triggerFullSync } = useAppData();
+  const { transactions, budgets, isSyncing, triggerUploadSync } = useAppData();
   const [viewMode, setViewMode] = useState<ViewMode>("current");
   const [chartType, setChartType] = useState<ChartType>("pie");
   const [chartDataType, setChartDataType] = useState<ChartDataType>("expense");
@@ -239,7 +239,7 @@ export default function ReportsScreen() {
     };
   };
 
-  const onRefresh = async () => await triggerFullSync();
+  const onRefresh = async () => await triggerUploadSync();
   const formatAmount = (amount: number) =>
     new Intl.NumberFormat("en-IN", {
       style: "currency",
