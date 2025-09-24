@@ -1,16 +1,26 @@
 // In api/sheets.ts
-import axios from 'axios';
-// --- NEW: Import Vercel's official types ---
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import axios from 'axios';
 
-// --- MODIFIED: Added the types to the function parameters ---
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   // Get the secret keys securely from the server's environment
   const API_KEY = process.env.GOOGLE_SHEETS_API_KEY;
   const API_URL = process.env.GOOGLE_SHEETS_API_URL;
+  const CLIENT_API_KEY = process.env.CLIENT_API_KEY; // NEW: Client authentication key
 
   if (!API_KEY || !API_URL) {
     return response.status(500).json({ error: 'API keys not configured on server.' });
+  }
+
+  if (!CLIENT_API_KEY) {
+    return response.status(500).json({ error: 'Client API key not configured on server.' });
+  }
+
+  // NEW: Check for client authentication
+  const clientKey = request.headers['x-api-key'] || request.query.apiKey;
+  
+  if (!clientKey || clientKey !== CLIENT_API_KEY) {
+    return response.status(401).json({ error: 'Unauthorized: Invalid or missing API key.' });
   }
 
   try {
