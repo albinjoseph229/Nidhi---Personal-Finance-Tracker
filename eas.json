@@ -6,7 +6,11 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://nidhi-ten.vercel.app",
+        "EXPO_PUBLIC_CLIENT_API_KEY": "this_is_albins_app"
+      }
     },
     "preview": {
       "distribution": "internal",
@@ -14,17 +18,15 @@
         "buildType": "apk"
       },
       "env": {
-        "GEMINI_API_KEY": "${secrets.GEMINI_API_KEY}",
-        "GOOGLE_SHEETS_API_URL": "${secrets.GOOGLE_SHEETS_API_URL}",
-        "GOOGLE_SHEETS_API_KEY": "${secrets.GOOGLE_SHEETS_API_KEY}"
+        "EXPO_PUBLIC_BACKEND_URL": "https://nidhi-ten.vercel.app",
+        "EXPO_PUBLIC_CLIENT_API_KEY": "this_is_albins_app"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "GEMINI_API_KEY": "${secrets.GEMINI_API_KEY}",
-        "GOOGLE_SHEETS_API_URL": "${secrets.GOOGLE_SHEETS_API_URL}",
-        "GOOGLE_SHEETS_API_KEY": "${secrets.GOOGLE_SHEETS_API_KEY}"
+        "EXPO_PUBLIC_BACKEND_URL": "https://nidhi-ten.vercel.app",
+        "EXPO_PUBLIC_CLIENT_API_KEY": "this_is_albins_app"
       }
     }
   },
