@@ -9,11 +9,12 @@ import React, {
   useState,
 } from "react";
 import * as db from "../database";
-import { Budget, Transaction } from "../database";
+import { Budget, Investment, Transaction } from "../database";
 
 interface AppContextType {
   transactions: Transaction[];
   budgets: Budget[];
+  investments: Investment[]; // ADDED
   isSyncing: boolean;
   isOnline: boolean;
   lastSyncError: string | null;
@@ -28,6 +29,10 @@ interface AppContextType {
   ) => Promise<void>;
   deleteTransaction: (uuid: string) => Promise<void>;
   setBudget: (budget: Budget) => Promise<void>;
+  // NEW: Investment functions
+  addInvestment: (invData: Omit<Investment, "isSynced" | "uuid">) => Promise<void>;
+  updateInvestment: (uuid: string, invData: Omit<Investment, "isSynced" | "uuid">) => Promise<void>;
+  deleteInvestment: (uuid: string) => Promise<void>;
   clearSyncError: () => void;
 }
 
@@ -36,6 +41,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [investments, setInvestments] = useState<Investment[]>([]); // ADDED
   const [isSyncing, setIsSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [lastSyncError, setLastSyncError] = useState<string | null>(null);
@@ -48,13 +54,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshLocalData = async (): Promise<{ hasData: boolean }> => {
     try {
-      const [localTxs, localBudgets] = await Promise.all([
+      const [localTxs, localBudgets, localInvestments] = await Promise.all([
         db.getAllTransactions(),
         db.getAllBudgets(),
+        db.getAllInvestments(), // ADDED
       ]);
       setTransactions(localTxs);
       setBudgets(localBudgets);
-      return { hasData: localTxs.length > 0 };
+      setInvestments(localInvestments); // ADDED
+      // UPDATED: Consider both transactions and investments for hasData
+      return { hasData: localTxs.length > 0 || localInvestments.length > 0 };
     } catch (error) {
       console.error("Failed to refresh local data", error);
       return { hasData: false };
@@ -207,6 +216,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [isOnline]); // Only re-run if isOnline changes
 
+  // --- TRANSACTION FUNCTIONS (unchanged) ---
   const addTransaction = async (txData: Omit<Transaction, "isSynced" | "id" | "uuid">): Promise<void> => {
     try {
       await db.addTransaction(txData);
@@ -254,11 +264,49 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // --- NEW: INVESTMENT FUNCTIONS ---
+  const addInvestment = async (invData: Omit<Investment, "isSynced" | "uuid">): Promise<void> => {
+    try {
+      await db.addInvestment(invData);
+      await refreshLocalData();
+      console.log("Investment added locally");
+    } catch (error) {
+      console.error("Failed to add investment:", error);
+      throw error;
+    }
+  };
+
+  const updateInvestment = async (
+    uuid: string,
+    invData: Omit<Investment, "isSynced" | "uuid">
+  ): Promise<void> => {
+    try {
+      await db.updateInvestment(uuid, invData);
+      await refreshLocalData();
+      console.log("Investment updated locally");
+    } catch (error) {
+      console.error("Failed to update investment:", error);
+      throw error;
+    }
+  };
+
+  const deleteInvestment = async (uuid: string): Promise<void> => {
+    try {
+      await db.deleteInvestment(uuid);
+      await refreshLocalData();
+      console.log("Investment deleted locally");
+    } catch (error) {
+      console.error("Failed to delete investment:", error);
+      throw error;
+    }
+  };
+
   const clearSyncError = () => setLastSyncError(null);
 
   const value: AppContextType = {
     transactions,
     budgets,
+    investments, // ADDED
     isSyncing,
     isOnline,
     lastSyncError,
@@ -274,6 +322,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     updateTransaction,
     deleteTransaction,
     setBudget,
+    // NEW: Investment functions
+    addInvestment,
+    updateInvestment,
+    deleteInvestment,
     clearSyncError,
   };
 

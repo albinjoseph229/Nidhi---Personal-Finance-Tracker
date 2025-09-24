@@ -28,7 +28,10 @@ const queueUnsyncedUpload = () => {
     if (isUploading) return;
     isUploading = true;
     
-    uploadUnsyncedTransactions()
+    Promise.all([
+      uploadUnsyncedTransactions(),
+      uploadUnsyncedInvestments() // NEW: Also upload investments
+    ])
       .catch(err => console.error("Background sync failed:", err))
       .finally(() => {
         isUploading = false;
@@ -53,10 +56,25 @@ export interface Budget {
   amount: number;
 }
 
+// NEW: Investment Interface
+export interface Investment {
+  uuid: string;
+  name: string;
+  type: 'Stock' | 'Gold' | 'Mutual Fund' | 'Other';
+  quantity: number;
+  purchasePrice: number;
+  purchaseDate: string;
+  currentValue: number;
+  status: 'active' | 'sold';
+  soldPrice?: number;
+  isSynced: 0 | 1;
+  isDeleted?: 0 | 1;
+}
+
 export const init = () => {
   console.log("Initializing database...");
   
-  // Create tables with all required columns from the start
+  // Create transactions table
   db.execSync(
     `CREATE TABLE IF NOT EXISTS transactions (
       id INTEGER PRIMARY KEY NOT NULL,
@@ -71,10 +89,28 @@ export const init = () => {
     );`
   );
   
+  // Create budgets table
   db.execSync(
     `CREATE TABLE IF NOT EXISTS budgets (
       monthYear TEXT PRIMARY KEY NOT NULL,
       amount REAL NOT NULL
+    );`
+  );
+
+  // NEW: Create investments table
+  db.execSync(
+    `CREATE TABLE IF NOT EXISTS investments (
+      uuid TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL,
+      quantity REAL NOT NULL,
+      purchasePrice REAL NOT NULL,
+      purchaseDate TEXT NOT NULL,
+      currentValue REAL NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      soldPrice REAL,
+      isSynced INTEGER NOT NULL DEFAULT 0,
+      isDeleted INTEGER NOT NULL DEFAULT 0
     );`
   );
 
@@ -83,29 +119,34 @@ export const init = () => {
   db.execSync(`CREATE INDEX IF NOT EXISTS idx_transactions_synced ON transactions(isSynced);`);
   db.execSync(`CREATE INDEX IF NOT EXISTS idx_transactions_deleted ON transactions(isDeleted);`);
   
-  // Migration for isDeleted column
+  // NEW: Create indices for investments
+  db.execSync(`CREATE INDEX IF NOT EXISTS idx_investments_uuid ON investments(uuid);`);
+  db.execSync(`CREATE INDEX IF NOT EXISTS idx_investments_synced ON investments(isSynced);`);
+  db.execSync(`CREATE INDEX IF NOT EXISTS idx_investments_deleted ON investments(isDeleted);`);
+  
+  // Migration for isDeleted column in transactions
   try {
     const result = db.getFirstSync(
       `SELECT count(*) as count FROM pragma_table_info('transactions') WHERE name='isDeleted';`
     ) as { count: number };
     
     if (result && result.count === 0) {
-      console.log("Adding isDeleted column...");
+      console.log("Adding isDeleted column to transactions...");
       db.execSync(`ALTER TABLE transactions ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0;`);
-      console.log("Successfully added isDeleted column");
+      console.log("Successfully added isDeleted column to transactions");
     }
   } catch (e) {
-    console.error("Failed to migrate isDeleted column:", e);
+    console.error("Failed to migrate isDeleted column for transactions:", e);
   }
 
-  // Migration for uuid column
+  // Migration for uuid column in transactions
   try {
     const result = db.getFirstSync(
       `SELECT count(*) as count FROM pragma_table_info('transactions') WHERE name='uuid';`
     ) as { count: number };
     
     if (result && result.count === 0) {
-      console.log("Adding uuid column and generating UUIDs...");
+      console.log("Adding uuid column and generating UUIDs for transactions...");
       db.execSync(`ALTER TABLE transactions ADD COLUMN uuid TEXT UNIQUE;`);
       
       const existingTxs = db.getAllSync(
@@ -118,12 +159,13 @@ export const init = () => {
       console.log(`Generated UUIDs for ${existingTxs.length} existing transactions`);
     }
   } catch (e) {
-    console.error("Failed to migrate uuid column:", e);
+    console.error("Failed to migrate uuid column for transactions:", e);
   }
 
   console.log("Database initialized successfully");
 };
 
+// --- TRANSACTION FUNCTIONS ---
 export const addTransaction = async (
   txData: Omit<Transaction, "isSynced" | "id" | "uuid">
 ): Promise<void> => {
@@ -150,15 +192,6 @@ export const getAllTransactions = async (): Promise<Transaction[]> => {
     );
   } catch (error) {
     console.error("Failed to get transactions:", error);
-    return [];
-  }
-};
-
-export const getAllBudgets = async (): Promise<Budget[]> => {
-  try {
-    return await db.getAllAsync<Budget>(`SELECT * FROM budgets;`);
-  } catch (error) {
-    console.error("Failed to get budgets:", error);
     return [];
   }
 };
@@ -196,6 +229,111 @@ export const deleteTransaction = async (uuid: string): Promise<void> => {
   }
 };
 
+// --- BUDGET FUNCTIONS ---
+export const getAllBudgets = async (): Promise<Budget[]> => {
+  try {
+    return await db.getAllAsync<Budget>(`SELECT * FROM budgets;`);
+  } catch (error) {
+    console.error("Failed to get budgets:", error);
+    return [];
+  }
+};
+
+export const getBudgetForMonth = async (monthYear: string): Promise<Budget | null> => {
+  try {
+    const result = await db.getFirstAsync<Budget>(
+      `SELECT * FROM budgets WHERE monthYear = ?;`,
+      [monthYear]
+    );
+    return result || null;
+  } catch (error) {
+    console.error("Failed to get budget:", error);
+    return null;
+  }
+};
+
+export const setBudgetForMonth = async (budget: Budget): Promise<void> => {
+  try {
+    await db.runAsync(
+      `INSERT OR REPLACE INTO budgets (monthYear, amount) VALUES (?, ?);`,
+      [budget.monthYear, budget.amount]
+    );
+    
+    // Background sync budget
+    axios.post(API_URL, {
+      apiKey: API_KEY,
+      action: "setBudget",
+      data: { MonthYear: budget.monthYear, BudgetAmount: budget.amount },
+    }, { timeout: 10000 })
+    .then(() => console.log(`Budget for ${budget.monthYear} synced successfully`))
+    .catch((error) => console.error("Background budget sync failed:", error));
+    
+  } catch (error) {
+    console.error("Failed to set budget:", error);
+    throw error;
+  }
+};
+
+// --- NEW: INVESTMENT FUNCTIONS ---
+export const addInvestment = async (invData: Omit<Investment, "isSynced" | "uuid">): Promise<void> => {
+  const newUuid = uuidv4();
+  const normalizedPurchaseDate = parseAndNormalizeToIST(invData.purchaseDate);
+
+  try {
+    await db.runAsync(
+      `INSERT INTO investments (uuid, name, type, quantity, purchasePrice, purchaseDate, currentValue, status, soldPrice, isSynced, isDeleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0);`,
+      [newUuid, invData.name, invData.type, invData.quantity, invData.purchasePrice, normalizedPurchaseDate, invData.currentValue, invData.status, invData.soldPrice || null]
+    );
+    console.log(`Added local investment: ${newUuid}`);
+    queueUnsyncedUpload();
+  } catch (error) {
+    console.error("Failed to add investment:", error);
+    throw error;
+  }
+};
+
+export const updateInvestment = async (uuid: string, invData: Omit<Investment, "isSynced" | "uuid">): Promise<void> => {
+  const normalizedPurchaseDate = parseAndNormalizeToIST(invData.purchaseDate);
+
+  try {
+    await db.runAsync(
+      `UPDATE investments SET name = ?, type = ?, quantity = ?, purchasePrice = ?, purchaseDate = ?, currentValue = ?, status = ?, soldPrice = ?, isSynced = 0 WHERE uuid = ? AND isDeleted = 0;`,
+      [invData.name, invData.type, invData.quantity, invData.purchasePrice, normalizedPurchaseDate, invData.currentValue, invData.status, invData.soldPrice || null, uuid]
+    );
+    console.log(`Updated local investment: ${uuid}`);
+    queueUnsyncedUpload();
+  } catch (error) {
+    console.error("Failed to update investment:", error);
+    throw error;
+  }
+};
+
+export const deleteInvestment = async (uuid: string): Promise<void> => {
+  try {
+    await db.runAsync(
+      `UPDATE investments SET isDeleted = 1, isSynced = 0 WHERE uuid = ?;`,
+      [uuid]
+    );
+    console.log(`Soft-deleted local investment: ${uuid}`);
+    queueUnsyncedUpload();
+  } catch (error) {
+    console.error("Failed to delete investment:", error);
+    throw error;
+  }
+};
+
+export const getAllInvestments = async (): Promise<Investment[]> => {
+  try {
+    return await db.getAllAsync<Investment>(
+      `SELECT * FROM investments WHERE isDeleted = 0 ORDER BY purchaseDate DESC;`
+    );
+  } catch (error) {
+    console.error("Failed to get investments:", error);
+    return [];
+  }
+};
+
+// --- SYNC FUNCTIONS ---
 export const uploadUnsyncedTransactions = async (): Promise<void> => {
   try {
     const unsyncedTxs = await db.getAllAsync<Transaction>(
@@ -275,37 +413,94 @@ export const uploadUnsyncedTransactions = async (): Promise<void> => {
   }
 };
 
-export const getBudgetForMonth = async (monthYear: string): Promise<Budget | null> => {
+// NEW: Upload unsynced investments
+export const uploadUnsyncedInvestments = async (): Promise<void> => {
   try {
-    const result = await db.getFirstAsync<Budget>(
-      `SELECT * FROM budgets WHERE monthYear = ?;`,
-      [monthYear]
+    const unsyncedInvs = await db.getAllAsync<Investment>(
+      `SELECT * FROM investments WHERE isSynced = 0;`
     );
-    return result || null;
-  } catch (error) {
-    console.error("Failed to get budget:", error);
-    return null;
-  }
-};
+    
+    if (unsyncedInvs.length === 0) {
+      console.log("No unsynced investments to upload");
+      return;
+    }
+    
+    console.log(`Uploading ${unsyncedInvs.length} unsynced investments...`);
 
-export const setBudgetForMonth = async (budget: Budget): Promise<void> => {
-  try {
-    await db.runAsync(
-      `INSERT OR REPLACE INTO budgets (monthYear, amount) VALUES (?, ?);`,
-      [budget.monthYear, budget.amount]
-    );
-    
-    // Background sync budget
-    axios.post(API_URL, {
-      apiKey: API_KEY,
-      action: "setBudget",
-      data: { MonthYear: budget.monthYear, BudgetAmount: budget.amount },
-    }, { timeout: 10000 })
-    .then(() => console.log(`Budget for ${budget.monthYear} synced successfully`))
-    .catch((error) => console.error("Background budget sync failed:", error));
-    
+    for (const inv of unsyncedInvs) {
+      try {
+        let action: string;
+        let payloadData: any;
+
+        if (inv.isDeleted) {
+          action = "deleteInvestment";
+          payloadData = { uuid: inv.uuid };
+        } else {
+          // Check if investment already exists in Google Sheets
+          const existingCheck = await axios.get(
+            `${API_URL}?apiKey=${API_KEY}&action=getInvestments`,
+            { timeout: 10000 }
+          );
+          
+          const existingInvestments = existingCheck.data?.data || [];
+          const existsInSheets = existingInvestments.some((existing: any) => existing.uuid === inv.uuid);
+          
+          action = existsInSheets ? "updateInvestment" : "addInvestment";
+          payloadData = {
+            uuid: inv.uuid,
+            name: inv.name,
+            type: inv.type,
+            quantity: inv.quantity,
+            purchasePrice: inv.purchasePrice,
+            purchaseDate: formatDateForSheets(inv.purchaseDate),
+            currentValue: inv.currentValue,
+            status: inv.status,
+            soldPrice: inv.soldPrice || null
+          };
+        }
+        
+        const payload = { 
+          apiKey: API_KEY, 
+          action, 
+          data: payloadData 
+        };
+
+        console.log(`Syncing ${action} for investment UUID: ${inv.uuid}`);
+        
+        const response = await axios.post(API_URL, payload, {
+          timeout: 10000,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+
+        if (response.status !== 200) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        // Handle successful sync
+        if (inv.isDeleted) {
+          await db.runAsync(`DELETE FROM investments WHERE uuid = ?;`, [inv.uuid]);
+          console.log(`Permanently deleted investment ${inv.uuid} after sync`);
+        } else {
+          await db.runAsync(`UPDATE investments SET isSynced = 1 WHERE uuid = ?;`, [inv.uuid]);
+          console.log(`Successfully synced investment ${inv.uuid}`);
+        }
+        
+      } catch (error) {
+        console.error(`Failed to sync investment ${inv.uuid}:`, error);
+        
+        if (axios.isAxiosError(error)) {
+          if (error.code === 'NETWORK_ERROR' || error.code === 'ECONNABORTED') {
+            console.log("Network error - will retry later");
+            break; // Stop trying other investments if network is down
+          }
+        }
+        // Continue with other investments for non-network errors
+      }
+    }
   } catch (error) {
-    console.error("Failed to set budget:", error);
+    console.error("Failed to upload unsynced investments:", error);
     throw error;
   }
 };
@@ -316,6 +511,7 @@ export const syncData = async (isFullSync: boolean): Promise<void> => {
   try {
     // Always upload pending changes first
     await uploadUnsyncedTransactions();
+    await uploadUnsyncedInvestments(); // NEW: Upload investments
 
     if (!isFullSync) {
       console.log("Upload-only sync completed");
@@ -404,6 +600,60 @@ export const syncData = async (isFullSync: boolean): Promise<void> => {
       }
     });
 
+    // NEW: Download investments
+    console.log("Downloading investments from Google Sheets...");
+    const invResponse = await axios.get(
+      `${API_URL}?apiKey=${API_KEY}&action=getInvestments`,
+      { timeout: 15000 }
+    );
+
+    if (invResponse.status !== 200) {
+      throw new Error(`Failed to fetch investments: HTTP ${invResponse.status}`);
+    }
+
+    const sheetInvestments = invResponse.data?.data || [];
+    console.log(`Downloaded ${sheetInvestments.length} investments from sheets`);
+
+    await db.withTransactionAsync(async () => {
+      for (const sheetInv of sheetInvestments) {
+        if (!sheetInv.uuid) continue;
+
+        const normalizedPurchaseDate = parseAndNormalizeToIST(sheetInv.purchaseDate);
+        const existing = await db.getFirstAsync<{ count: number }>(
+          `SELECT COUNT(*) as count FROM investments WHERE uuid = ?;`,
+          [sheetInv.uuid]
+        );
+
+        const investmentData = {
+          uuid: sheetInv.uuid,
+          name: sheetInv.name || "Unknown Investment",
+          type: sheetInv.type || "Other",
+          quantity: parseFloat(sheetInv.quantity || 0),
+          purchasePrice: parseFloat(sheetInv.purchasePrice || 0),
+          purchaseDate: normalizedPurchaseDate,
+          currentValue: parseFloat(sheetInv.currentValue || 0),
+          status: (sheetInv.status || "active").toLowerCase() === "sold" ? "sold" : "active",
+          soldPrice: sheetInv.soldPrice ? parseFloat(sheetInv.soldPrice) : null,
+        };
+
+        if (!existing || existing.count === 0) {
+          await db.runAsync(
+            `INSERT INTO investments (uuid, name, type, quantity, purchasePrice, purchaseDate, currentValue, status, soldPrice, isSynced, isDeleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0);`,
+            [investmentData.uuid, investmentData.name, investmentData.type, investmentData.quantity,
+             investmentData.purchasePrice, investmentData.purchaseDate, investmentData.currentValue,
+             investmentData.status, investmentData.soldPrice]
+          );
+        } else {
+          await db.runAsync(
+            `UPDATE investments SET name = ?, type = ?, quantity = ?, purchasePrice = ?, purchaseDate = ?, currentValue = ?, status = ?, soldPrice = ?, isSynced = 1, isDeleted = 0 WHERE uuid = ?;`,
+            [investmentData.name, investmentData.type, investmentData.quantity, investmentData.purchasePrice,
+             investmentData.purchaseDate, investmentData.currentValue, investmentData.status,
+             investmentData.soldPrice, investmentData.uuid]
+          );
+        }
+      }
+    });
+
     // Update last sync timestamp
     await AsyncStorage.setItem('lastFullSyncTimestamp', Date.now().toString());
     console.log("Full sync completed successfully");
@@ -434,18 +684,39 @@ const getUnsyncedTransactions = async (): Promise<Transaction[]> => {
   }
 };
 
-export const getSyncStatus = async (): Promise<{ unsyncedCount: number; lastSync: string | null; }> => {
+// NEW: Get unsynced investments
+const getUnsyncedInvestments = async (): Promise<Investment[]> => {
   try {
-    const unsynced = await getUnsyncedTransactions();
+    return await db.getAllAsync<Investment>(`SELECT * FROM investments WHERE isSynced = 0;`);
+  } catch (error) {
+    console.error("Failed to get unsynced investments:", error);
+    return [];
+  }
+};
+
+export const getSyncStatus = async (): Promise<{ 
+  unsyncedTransactionsCount: number; 
+  unsyncedInvestmentsCount: number; 
+  lastSync: string | null; 
+}> => {
+  try {
+    const unsyncedTxs = await getUnsyncedTransactions();
+    const unsyncedInvs = await getUnsyncedInvestments(); // NEW
     const lastSyncString = await AsyncStorage.getItem('lastFullSyncTimestamp');
     const lastSyncDate = lastSyncString ? new Date(parseInt(lastSyncString, 10)) : null;
 
     return {
-      unsyncedCount: unsynced.length,
+      unsyncedTransactionsCount: unsyncedTxs.length,
+      unsyncedInvestmentsCount: unsyncedInvs.length, // NEW
       lastSync: lastSyncDate ? lastSyncDate.toLocaleString('en-IN') : 'Never',
     };
   } catch (error) {
     console.error("Failed to get sync status:", error);
-    return { unsyncedCount: 0, lastSync: 'Error' };
+    return { 
+      unsyncedTransactionsCount: 0, 
+      unsyncedInvestmentsCount: 0, 
+      lastSync: 'Error' 
+    };
   }
 };
+

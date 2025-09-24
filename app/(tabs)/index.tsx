@@ -1,18 +1,16 @@
-// In app/(tabs)/index.tsx
-
 import { Feather } from "@expo/vector-icons";
 import { Link, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useMemo } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   View,
 } from "react-native";
 
-// Import themed components and hooks
 import { ThemedText } from "../../components/themed-text";
 import { ThemedView } from "../../components/themed-view";
 import { useAppData } from "../../context/AppContext";
@@ -27,7 +25,8 @@ interface WeeklyDataPoint {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { transactions, budgets, isSyncing, triggerUploadSync } = useAppData();
+  const { transactions, investments, isSyncing, triggerUploadSync } =
+    useAppData();
   const { theme } = useTheme();
 
   const cardColor = useThemeColor({}, "card");
@@ -36,11 +35,12 @@ export default function HomeScreen() {
   const separatorColor = useThemeColor({}, "background");
 
   const {
-    totalIncome,
-    totalExpenses,
     savings,
+    totalExpenses,
     recentTransactions,
     dynamicWeeklyData,
+    totalInvestmentValue,
+    netWorth,
   } = useMemo(() => {
     const today = new Date();
     const currentMonth = today.getMonth();
@@ -84,13 +84,11 @@ export default function HomeScreen() {
     const expenses = transactionsThisMonth
       .filter((tx) => tx.type === "expense")
       .reduce((sum, tx) => sum + tx.amount, 0);
+    
+    const currentSavings = income - expenses;
 
-    const recent = transactions
-      .sort((a, b) => {
-        const dateA = parseTransactionDate(a.date);
-        const dateB = parseTransactionDate(b.date);
-        return dateB.getTime() - dateA.getTime();
-      })
+    const recent = [...transactions]
+      .sort((a, b) => parseTransactionDate(b.date).getTime() - parseTransactionDate(a.date).getTime())
       .slice(0, 3);
 
     const weekData: WeeklyDataPoint[] = [];
@@ -136,14 +134,19 @@ export default function HomeScreen() {
       }
     });
 
+    const investmentValue = investments
+      .filter((inv) => inv.status === "active")
+      .reduce((sum, inv) => sum + inv.currentValue * inv.quantity, 0);
+
     return {
-      totalIncome: income,
+      savings: currentSavings,
       totalExpenses: expenses,
-      savings: income - expenses,
       recentTransactions: recent,
       dynamicWeeklyData: weekData,
+      totalInvestmentValue: investmentValue,
+      netWorth: currentSavings + investmentValue,
     };
-  }, [transactions]);
+  }, [transactions, investments]);
 
   const onRefresh = async () => {
     await triggerUploadSync();
@@ -200,50 +203,61 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <ThemedText style={styles.headerTitle}>Home</ThemedText>
+          <Pressable onPress={() => router.push("/settings")}>
+            <Feather name="settings" size={24} color={secondaryTextColor} />
+          </Pressable>
         </View>
 
-        {/* Financial Summary Card */}
+        {/* --- MODIFIED: Summary Card now includes Monthly Expenses --- */}
         <ThemedView
           style={[
             styles.summaryCard,
             { backgroundColor: cardColor, shadowColor: textColor },
           ]}
         >
-          <View style={styles.summaryRow}>
+          <ThemedText style={[styles.summaryLabel, { color: secondaryTextColor }]}>
+            Net Worth
+          </ThemedText>
+          <ThemedText style={styles.netWorthAmount}>
+            {formatAmount(netWorth)}
+          </ThemedText>
+
+          <View style={[styles.summaryRow, { borderTopColor: separatorColor }]}>
             <View style={styles.summaryItem}>
               <ThemedText
                 style={[styles.summaryLabel, { color: secondaryTextColor }]}
               >
-                Income
+                Savings (Month)
               </ThemedText>
-              <ThemedText style={[styles.summaryAmount, { color: "#34C759" }]}>
-                {formatAmount(totalIncome)}
+              <ThemedText style={[styles.summaryAmount, { color: textColor }]}>
+                {formatAmount(savings)}
               </ThemedText>
             </View>
             <View style={styles.summaryItem}>
               <ThemedText
                 style={[styles.summaryLabel, { color: secondaryTextColor }]}
               >
-                Expenses
+                Investments
               </ThemedText>
-              <ThemedText style={[styles.summaryAmount, { color: "#FF3B30" }]}>
-                {formatAmount(totalExpenses)}
+              <ThemedText style={[styles.summaryAmount, { color: textColor }]}>
+                {formatAmount(totalInvestmentValue)}
               </ThemedText>
             </View>
           </View>
-          <View style={[styles.savingsRow, { borderTopColor: separatorColor }]}>
+          
+          <View style={[styles.summaryFullRow, { borderTopColor: separatorColor }]}>
             <ThemedText
-              style={[styles.savingsLabel, { color: secondaryTextColor }]}
+              style={[styles.summaryLabel, { color: secondaryTextColor }]}
             >
-              Savings This Month
+              Expenses (Month)
             </ThemedText>
-            <ThemedText style={styles.savingsAmount}>
-              {formatAmount(savings)}
+            <ThemedText style={[styles.summaryAmount, { color: textColor }]}>
+              {formatAmount(totalExpenses)}
             </ThemedText>
           </View>
         </ThemedView>
 
-        {/* Analytics Card */}
+        {/* --- MODIFIED: Analytics Card header is now a static label --- */}
         <ThemedView
           lightColor="#1C1C1E"
           darkColor={cardColor}
@@ -260,7 +274,7 @@ export default function HomeScreen() {
             <ThemedText
               style={[styles.analyticsMonth, { color: secondaryTextColor }]}
             >
-              This month
+              This Month
             </ThemedText>
           </View>
           <View style={styles.chartContainer}>
@@ -376,18 +390,32 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 12,
     elevation: 2,
+    alignItems: "center",
   },
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 20,
+    paddingTop: 16,
+    marginTop: 16,
+    borderTopWidth: 1,
+    width: "100%",
+  },
+  // --- NEW STYLE: For the full-width expense row ---
+  summaryFullRow: {
+    alignItems: "center",
+    paddingTop: 16,
+    marginTop: 16,
+    borderTopWidth: 1,
+    width: "100%",
   },
   summaryItem: { alignItems: "center", flex: 1 },
   summaryLabel: { fontSize: 14, marginBottom: 4 },
-  summaryAmount: { fontSize: 22, fontWeight: "600" },
-  savingsRow: { borderTopWidth: 1, paddingTop: 16, alignItems: "center" },
-  savingsLabel: { fontSize: 16, fontWeight: "500" },
-  savingsAmount: { fontSize: 28, fontWeight: "bold", marginTop: 4 },
+  summaryAmount: { fontSize: 20, fontWeight: "600" },
+  netWorthAmount: {
+    fontSize: 32,
+    fontWeight: "bold",
+    marginTop: 4,
+  },
   analyticsCard: {
     borderRadius: 20,
     padding: 24,
@@ -404,7 +432,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   analyticsTitle: { fontSize: 18, fontWeight: "600" },
-  analyticsMonth: { fontSize: 14 },
+  analyticsMonth: { fontSize: 16 },
   chartContainer: {
     flexDirection: "row",
     justifyContent: "space-around",

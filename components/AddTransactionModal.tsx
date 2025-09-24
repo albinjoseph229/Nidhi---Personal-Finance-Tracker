@@ -1,7 +1,6 @@
-//components/AddTransactionModal.tsx
+// In components/AddTransactionModal.tsx
 
 import { Feather } from "@expo/vector-icons";
-
 import { Href, useRouter } from "expo-router";
 import React from "react";
 import { Modal, Pressable, StyleSheet } from "react-native";
@@ -24,7 +23,6 @@ export function AddTransactionModal({ isVisible, onClose }: Props) {
   const secondaryTextColor = useThemeColor({}, "tabIconDefault");
   const separatorColor = useThemeColor({}, "background");
 
-  // In components/AddTransactionModal.tsx
   const handleNavigate = (path: Href) => {
     onClose(); // Close the modal first
     router.push(path); // Then navigate
@@ -46,7 +44,7 @@ export function AddTransactionModal({ isVisible, onClose }: Props) {
             ]}
           >
             <ThemedText style={[styles.title, { color: secondaryTextColor }]}>
-              Add a new transaction
+              Add a new record
             </ThemedText>
 
             <Pressable
@@ -56,6 +54,16 @@ export function AddTransactionModal({ isVisible, onClose }: Props) {
               <Feather name="arrow-down-circle" size={24} color="#FF3B30" />
               <ThemedText style={styles.optionText}>Add Expense</ThemedText>
             </Pressable>
+
+            {/* --- NEW INVESTMENT OPTION --- */}
+            <Pressable
+              style={[styles.optionRow, { borderBottomColor: separatorColor }]}
+              onPress={() => handleNavigate("/add-investment")}
+            >
+              <Feather name="trending-up" size={24} color="#4A90E2" />
+              <ThemedText style={styles.optionText}>Add Investment</ThemedText>
+            </Pressable>
+            {/* ----------------------------- */}
 
             <Pressable
               style={styles.optionRow}

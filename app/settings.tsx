@@ -7,13 +7,13 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 // Import our themed components and hooks
-import { ThemedText } from '../../components/themed-text';
-import { ThemedView } from '../../components/themed-view';
-import { useAppData } from '../../context/AppContext';
-import { useTheme } from '../../context/ThemeContext';
-import { useThemeColor } from '../../hooks/use-theme-color';
-import { generateReportWithGemini } from '../../utils/geminiApi';
-import { generateFinancialReport as generatePdfReport } from '../../utils/pdfExport';
+import { ThemedText } from '../components/themed-text';
+import { ThemedView } from '../components/themed-view';
+import { useAppData } from '../context/AppContext';
+import { useTheme } from '../context/ThemeContext';
+import { useThemeColor } from '../hooks/use-theme-color';
+import { generateReportWithGemini } from '../utils/geminiApi';
+import { generateFinancialReport as generatePdfReport } from '../utils/pdfExport';
 
 export default function ProfileScreen() {
   const { theme, toggleTheme } = useTheme();

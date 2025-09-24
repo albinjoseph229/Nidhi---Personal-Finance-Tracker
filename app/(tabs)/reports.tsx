@@ -27,6 +27,8 @@ interface ChartData {
   name: string;
   amount: number;
   color: string;
+  legendFontColor?: string;
+  legendFontSize?: number;
 }
 interface MonthlyData {
   income: number[];
@@ -59,12 +61,13 @@ const CHART_COLORS = [
   "#00D2D3",
   "#FF3838",
 ];
-type ViewMode = "current" | "yearly" | "monthly";
+type ViewMode = "current" | "yearly" | "monthly" | "investments";
 type ChartType = "pie" | "bar";
 type ChartDataType = "income" | "expense";
 
 export default function ReportsScreen() {
-  const { transactions, budgets, isSyncing, triggerUploadSync } = useAppData();
+  const { transactions, investments, budgets, isSyncing, triggerUploadSync } =
+    useAppData();
   const [viewMode, setViewMode] = useState<ViewMode>("current");
   const [chartType, setChartType] = useState<ChartType>("pie");
   const [chartDataType, setChartDataType] = useState<ChartDataType>("expense");
@@ -102,6 +105,8 @@ export default function ReportsScreen() {
     totalExpenses,
     monthlyBudget,
     availableYears,
+    investmentAllocationData,
+    totalInvestmentValue,
   } = useMemo(() => {
     const today = new Date();
     const currentMonth = today.getMonth();
@@ -191,6 +196,31 @@ export default function ReportsScreen() {
     ).padStart(2, "0")}`;
     const budget = budgets.find((b) => b.monthYear === currentMonthYear);
 
+    const activeInvestments = investments.filter(
+      (inv) => inv.status === "active"
+    );
+
+    const investmentByType = activeInvestments.reduce((acc, inv) => {
+      const value = inv.currentValue * inv.quantity;
+      acc[inv.type] = (acc[inv.type] || 0) + value;
+      return acc;
+    }, {} as { [key: string]: number });
+
+    const invAllocationData: ChartData[] = Object.keys(investmentByType).map(
+      (type, index) => ({
+        name: type,
+        amount: investmentByType[type],
+        color: CHART_COLORS[index % CHART_COLORS.length],
+        legendFontColor: textColor,
+        legendFontSize: 14,
+      })
+    );
+
+    const totalInvValue = activeInvestments.reduce(
+      (sum, inv) => sum + inv.currentValue * inv.quantity,
+      0
+    );
+
     return {
       currentMonthIncomeData,
       currentMonthExpenseData,
@@ -201,8 +231,10 @@ export default function ReportsScreen() {
       totalExpenses: totalExpensesForPeriod,
       monthlyBudget: budget?.amount || 0,
       availableYears: years.length > 0 ? years : [currentYear],
+      investmentAllocationData: invAllocationData,
+      totalInvestmentValue: totalInvValue,
     };
-  }, [transactions, budgets, viewMode, selectedYear]);
+  }, [transactions, investments, budgets, viewMode, selectedYear]);
 
   const chartConfig = {
     backgroundColor: cardColor,
@@ -233,7 +265,7 @@ export default function ReportsScreen() {
       labels: sortedData.map((item) => {
         // Truncate labels to prevent cutoff
         const label = item.name;
-        return label.length > 8 ? label.substring(0, 8) + '...' : label;
+        return label.length > 8 ? label.substring(0, 8) + "..." : label;
       }),
       datasets: [{ data: sortedData.map((item) => item.amount) }],
     };
@@ -297,6 +329,7 @@ export default function ReportsScreen() {
               { key: "current", label: "This Month", icon: "calendar" },
               { key: "yearly", label: "Yearly", icon: "bar-chart-2" },
               { key: "monthly", label: "Trend", icon: "activity" },
+              { key: "investments", label: "Investments", icon: "trending-up" },
             ].map((mode) => (
               <Pressable
                 key={mode.key}
@@ -351,41 +384,141 @@ export default function ReportsScreen() {
           )}
         </ThemedView>
 
+        {viewMode === "investments" && (
+          <ThemedView
+            style={[
+              styles.card,
+              { backgroundColor: cardColor, shadowColor: textColor },
+            ]}
+          >
+            <ThemedText style={styles.cardTitle}>
+              Investment Allocation
+            </ThemedText>
+            <ThemedText style={styles.summaryTotal}>
+              {formatAmount(totalInvestmentValue)}
+            </ThemedText>
+
+            {investmentAllocationData.length > 0 ? (
+              <View style={styles.chartContainer}>
+                <PieChart
+                  data={investmentAllocationData}
+                  width={screenWidth - 40}
+                  height={220}
+                  chartConfig={chartConfig}
+                  accessor="amount"
+                  backgroundColor="transparent"
+                  paddingLeft="15"
+                  center={[10, 0]}
+                  absolute
+                />
+              </View>
+            ) : (
+              <View style={styles.noDataContainer}>
+                <Feather
+                  name="trending-up"
+                  size={48}
+                  color={secondaryTextColor}
+                  style={{ opacity: 0.5 }}
+                />
+                <ThemedText
+                  style={[styles.noDataText, { color: secondaryTextColor }]}
+                >
+                  No active investments found
+                </ThemedText>
+              </View>
+            )}
+          </ThemedView>
+        )}
+
         {viewMode === "current" && (
-          <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
+          <ThemedView
+            style={[
+              styles.card,
+              { backgroundColor: cardColor, shadowColor: textColor },
+            ]}
+          >
             <View style={styles.budgetHeader}>
               <ThemedText style={styles.cardTitle}>Monthly Budget</ThemedText>
               <Link href="/set-budget" asChild>
-                <ThemedText style={styles.linkText}> {monthlyBudget > 0 ? "Edit" : "Set Budget"} </ThemedText>
+                <ThemedText style={styles.linkText}>
+                  {" "}
+                  {monthlyBudget > 0 ? "Edit" : "Set Budget"}{" "}
+                </ThemedText>
               </Link>
             </View>
             {monthlyBudget > 0 ? (
               <>
                 <View style={styles.budgetStats}>
-                  <View style={styles.budgetStatItem}><ThemedText style={[styles.budgetStatLabel, { color: secondaryTextColor }]}>Spent</ThemedText><ThemedText style={styles.budgetStatValue}>{formatAmount(totalExpenses)}</ThemedText></View>
-                  
-                  {/* --- FIX STARTS HERE --- */}
                   <View style={styles.budgetStatItem}>
-                    <ThemedText style={[styles.budgetStatLabel, { color: secondaryTextColor }]}>
-                      {remainingBudget >= 0 ? 'Remaining' : 'Over'}
+                    <ThemedText
+                      style={[styles.budgetStatLabel, { color: secondaryTextColor }]}
+                    >
+                      Spent
                     </ThemedText>
-                    <ThemedText style={[styles.budgetStatValue, { color: remainingBudget >= 0 ? "#34C759" : "#FF3B30" }]}>
+                    <ThemedText style={styles.budgetStatValue}>
+                      {formatAmount(totalExpenses)}
+                    </ThemedText>
+                  </View>
+
+                  <View style={styles.budgetStatItem}>
+                    <ThemedText
+                      style={[styles.budgetStatLabel, { color: secondaryTextColor }]}
+                    >
+                      {remainingBudget >= 0 ? "Remaining" : "Over"}
+                    </ThemedText>
+                    <ThemedText
+                      style={[
+                        styles.budgetStatValue,
+                        { color: remainingBudget >= 0 ? "#34C759" : "#FF3B30" },
+                      ]}
+                    >
                       {formatAmount(Math.abs(remainingBudget))}
                     </ThemedText>
                   </View>
-                  {/* --- FIX ENDS HERE --- */}
 
-                  <View style={styles.budgetStatItem}><ThemedText style={[styles.budgetStatLabel, { color: secondaryTextColor }]}>Budget</ThemedText><ThemedText style={styles.budgetStatValue}>{formatAmount(monthlyBudget)}</ThemedText></View>
+                  <View style={styles.budgetStatItem}>
+                    <ThemedText
+                      style={[styles.budgetStatLabel, { color: secondaryTextColor }]}
+                    >
+                      Budget
+                    </ThemedText>
+                    <ThemedText style={styles.budgetStatValue}>
+                      {formatAmount(monthlyBudget)}
+                    </ThemedText>
+                  </View>
                 </View>
-                <ThemedView style={[styles.progressBar, { backgroundColor: backgroundColor }]}>
-                  <View style={[styles.progressFill, { width: `${Math.min(budgetProgress, 100)}%`, backgroundColor: budgetProgress > 100 ? "#FF3B30" : budgetProgress > 80 ? "#FF9500" : "#34C759" }]} />
+                <ThemedView
+                  style={[
+                    styles.progressBar,
+                    { backgroundColor: backgroundColor },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: `${Math.min(budgetProgress, 100)}%`,
+                        backgroundColor:
+                          budgetProgress > 100
+                            ? "#FF3B30"
+                            : budgetProgress > 80
+                            ? "#FF9500"
+                            : "#34C759",
+                      },
+                    ]}
+                  />
                 </ThemedView>
               </>
-            ) : ( <ThemedText style={{ color: secondaryTextColor }}>No budget set for this month. Tap 'Set Budget' to start tracking.</ThemedText> )}
+            ) : (
+              <ThemedText style={{ color: secondaryTextColor }}>
+                No budget set for this month. Tap 'Set Budget' to start
+                tracking.
+              </ThemedText>
+            )}
           </ThemedView>
         )}
 
-        {viewMode !== "monthly" && (
+        {(viewMode === "current" || viewMode === "yearly") && (
           <ThemedView
             style={[
               styles.card,
@@ -478,20 +611,15 @@ export default function ReportsScreen() {
           </ThemedView>
         )}
 
-        <ThemedView
-          style={[
-            styles.card,
-            { backgroundColor: cardColor, shadowColor: textColor },
-          ]}
-        >
-          <View style={styles.chartHeader}>
-            <ThemedText style={styles.cardTitle}>
-              {" "}
-              {viewMode === "monthly"
-                ? "Monthly Trend"
-                : "Visual Breakdown"}{" "}
-            </ThemedText>
-            {viewMode !== "monthly" && (
+        {(viewMode === "current" || viewMode === "yearly") && (
+          <ThemedView
+            style={[
+              styles.card,
+              { backgroundColor: cardColor, shadowColor: textColor },
+            ]}
+          >
+            <View style={styles.chartHeader}>
+              <ThemedText style={styles.cardTitle}>Visual Breakdown</ThemedText>
               <View style={styles.chartTypeSelector}>
                 {[
                   { key: "pie", icon: "pie-chart" },
@@ -511,10 +639,8 @@ export default function ReportsScreen() {
                   </Pressable>
                 ))}
               </View>
-            )}
-          </View>
+            </View>
 
-          {viewMode !== "monthly" && (
             <ThemedView
               style={[
                 styles.viewModeSelector,
@@ -543,13 +669,101 @@ export default function ReportsScreen() {
                 </Pressable>
               ))}
             </ThemedView>
-          )}
 
-          {getCurrentChartData().length > 0 ||
-          monthlyTrends.income.some((v) => v > 0) ||
-          monthlyTrends.expenses.some((v) => v > 0) ? (
-            <View style={styles.chartContainer}>
-              {viewMode === "monthly" ? (
+            {getCurrentChartData().length > 0 ? (
+              <View style={styles.chartContainer}>
+                {chartType === "pie" ? (
+                  <>
+                    <View style={styles.pieChartContainer}>
+                      <PieChart
+                        data={getCurrentChartData()}
+                        width={screenWidth - 40}
+                        height={220}
+                        chartConfig={chartConfig}
+                        accessor="amount"
+                        backgroundColor="transparent"
+                        paddingLeft="60"
+                        center={[20, 0]}
+                        absolute
+                        hasLegend={false}
+                      />
+                    </View>
+                    <View style={styles.legendContainer}>
+                      {getCurrentChartData().map((item) => (
+                        <View key={item.name} style={styles.legendItem}>
+                          <View
+                            style={[
+                              styles.legendDot,
+                              { backgroundColor: item.color },
+                            ]}
+                          />
+                          <ThemedText
+                            style={styles.legendText}
+                            numberOfLines={1}
+                          >
+                            {item.name}
+                          </ThemedText>
+                        </View>
+                      ))}
+                    </View>
+                  </>
+                ) : (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.barChartScrollContainer}
+                  >
+                    <View style={styles.barChartContainer}>
+                      <BarChart
+                        data={getBarChartData()}
+                        width={Math.max(
+                          screenWidth - 40,
+                          getBarChartData().labels.length * 80
+                        )}
+                        height={300}
+                        chartConfig={chartConfig}
+                        yAxisLabel=""
+                        yAxisSuffix=""
+                        style={styles.chart}
+                        fromZero
+                        showBarTops={false}
+                        showValuesOnTopOfBars={false}
+                      />
+                    </View>
+                  </ScrollView>
+                )}
+              </View>
+            ) : (
+              <View style={styles.noDataContainer}>
+                <Feather
+                  name="pie-chart"
+                  size={48}
+                  color={secondaryTextColor}
+                  style={{ opacity: 0.5 }}
+                />
+                <ThemedText
+                  style={[styles.noDataText, { color: secondaryTextColor }]}
+                >
+                  Not enough data
+                </ThemedText>
+              </View>
+            )}
+          </ThemedView>
+        )}
+
+        {viewMode === "monthly" && (
+          <ThemedView
+            style={[
+              styles.card,
+              { backgroundColor: cardColor, shadowColor: textColor },
+            ]}
+          >
+            <View style={styles.chartHeader}>
+              <ThemedText style={styles.cardTitle}>Monthly Trend</ThemedText>
+            </View>
+            {monthlyTrends.income.some((v) => v > 0) ||
+            monthlyTrends.expenses.some((v) => v > 0) ? (
+              <View style={styles.chartContainer}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <LineChart
                     data={{
@@ -575,76 +789,24 @@ export default function ReportsScreen() {
                     style={styles.chart}
                   />
                 </ScrollView>
-              ) : chartType === "pie" ? (
-                <>
-                  <View style={styles.pieChartContainer}>
-                    <PieChart
-                      data={getCurrentChartData()}
-                      width={screenWidth - 40}
-                      height={220}
-                      chartConfig={chartConfig}
-                      accessor="amount"
-                      backgroundColor="transparent"
-                      paddingLeft="60"
-                      center={[20, 0]}
-                      absolute
-                      hasLegend={false}
-                    />
-                  </View>
-                  <View style={styles.legendContainer}>
-                    {getCurrentChartData().map((item) => (
-                      <View key={item.name} style={styles.legendItem}>
-                        <View
-                          style={[
-                            styles.legendDot,
-                            { backgroundColor: item.color },
-                          ]}
-                        />
-                        <ThemedText style={styles.legendText} numberOfLines={1}>
-                          {item.name}
-                        </ThemedText>
-                      </View>
-                    ))}
-                  </View>
-                </>
-              ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.barChartScrollContainer}>
-                  <View style={styles.barChartContainer}>
-                    <BarChart
-                      data={getBarChartData()}
-                      width={Math.max(
-                        screenWidth - 40,
-                        getBarChartData().labels.length * 80
-                      )}
-                      height={300}
-                      chartConfig={chartConfig}
-                      yAxisLabel=""
-                      yAxisSuffix=""
-                      style={styles.chart}
-                      fromZero
-                      showBarTops={false}
-                      showValuesOnTopOfBars={false}
-                    />
-                  </View>
-                </ScrollView>
-              )}
-            </View>
-          ) : (
-            <View style={styles.noDataContainer}>
-              <Feather
-                name="pie-chart"
-                size={48}
-                color={secondaryTextColor}
-                style={{ opacity: 0.5 }}
-              />
-              <ThemedText
-                style={[styles.noDataText, { color: secondaryTextColor }]}
-              >
-                Not enough data
-              </ThemedText>
-            </View>
-          )}
-        </ThemedView>
+              </View>
+            ) : (
+              <View style={styles.noDataContainer}>
+                <Feather
+                  name="pie-chart"
+                  size={48}
+                  color={secondaryTextColor}
+                  style={{ opacity: 0.5 }}
+                />
+                <ThemedText
+                  style={[styles.noDataText, { color: secondaryTextColor }]}
+                >
+                  Not enough data
+                </ThemedText>
+              </View>
+            )}
+          </ThemedView>
+        )}
       </ScrollView>
     </ThemedView>
   );
@@ -730,16 +892,15 @@ const styles = StyleSheet.create({
   },
   chartTypeSelector: { flexDirection: "row", gap: 16, marginBottom: 16 },
   chartContainer: { alignItems: "center", marginTop: 16 },
-  // ✅ FIX: Changed to center the pie chart correctly
-  pieChartContainer: { 
-    width: '100%',
-    alignItems: 'center',
+  pieChartContainer: {
+    width: "100%",
+    alignItems: "center",
   },
   barChartScrollContainer: {
     paddingHorizontal: 10,
   },
   barChartContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: 10,
   },
   chart: { borderRadius: 20 },
