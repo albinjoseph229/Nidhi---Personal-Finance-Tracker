@@ -14,6 +14,7 @@ A comprehensive, privacy-first personal finance tracker powered by **React Nativ
 * [Tech Stack](#-tech-stack)
 * [Installation](#-installation)
 * [Google Apps Script Setup](#-google-apps-script-setup)
+* [Backend Setup (Vercel)](#-backend-setup-vercel)
 * [Environment Variables](#-environment-variables)
 * [Running the App](#-running-the-app)
 * [Building for Production](#-building-for-production)
@@ -73,7 +74,7 @@ Here's a sneak peek of **Nidhi** in action. The app supports a clean, consistent
 
 ## 🏗️ Architecture Overview
 
-Nidhi is designed with **offline-first architecture** to ensure reliability and privacy:
+Nidhi is designed with **offline-first architecture** to ensure reliability, security, and privacy:
 
 ```
 User Interface (React Native Screens)
@@ -82,18 +83,23 @@ User Interface (React Native Screens)
           ⬇
    Local Database (Expo SQLite)
           ⬇             ⬇
- Background Sync Service      ↔      Google Sheets API (Apps Script Backend)
+ Background Sync Service      ↔      Vercel Backend (API Routes)
+                                      ⬇
+                            Google Sheets API & Gemini API
 ```
 
 * **SQLite (Local Storage):** Stores all transactions, budgets, and investments offline.
 * **AppContext:** Acts as a bridge between the UI and the local database, ensuring instant updates.
-* **Background Sync:** Periodically pushes pending changes from SQLite to Google Sheets when online.
+* **Background Sync:** Periodically pushes pending changes from SQLite to the backend when online.
+* **Vercel Backend:** Handles secure communication with Google Sheets & Gemini API using server-only keys.
 * **Google Sheets API:** Serves as the cloud backend for backup, analytics, and cross-device access.
+* **Gemini API:** Powers AI-based insights.
 
 This layered approach ensures:
 
 * ✅ **Offline-first experience** (app works even without internet)
 * ✅ **Seamless cloud sync** (data is never lost)
+* ✅ **Server-side security** (API keys are never exposed in the app)
 * ✅ **Privacy-first design** (your sheet, your data)
 
 ---
@@ -103,6 +109,7 @@ This layered approach ensures:
 * **Framework:** React Native (Expo)
 * **Navigation:** Expo Router (File-based)
 * **Local Storage:** Expo SQLite (with migrations, indexing, and UUID support)
+* **Backend:** Vercel Serverless Functions (Node.js + Axios)
 * **Cloud Backend:** Google Sheets + Google Apps Script
 * **AI Integration:** Google Gemini API
 * **Deployment:** EAS (Expo Application Services)
@@ -154,21 +161,40 @@ The `Code.gs` file is located in the **root directory** of this project. Copy it
 
    * Execute as: **Me**
    * Who has access: **Anyone**
-6. Copy the deployment URL – this will be used as `GOOGLE_SHEETS_API_URL`.
+6. Copy the deployment URL – this will be used by the Vercel backend.
+
+---
+
+## 🖥️ Backend Setup (Vercel)
+
+All sensitive API keys are now stored securely in your **Vercel project** and never exposed to the client app.
+
+1. In your Vercel dashboard, go to **Project Settings > Environment Variables**.
+
+2. Add the following keys:
+
+   ```bash
+   GOOGLE_SHEETS_API_KEY=your_secret_key_from_code.gs
+   GOOGLE_SHEETS_API_URL=your_apps_script_webapp_url
+   GEMINI_API_KEY=your_gemini_api_key
+   CLIENT_API_KEY=your_custom_client_key_for_auth
+   ```
+
+3. Deploy your project to Vercel. The serverless functions (`/api/sheets` and `/api/gemini`) will use these keys securely.
+
+4. Your React Native app will now connect only to the **Vercel backend**.
 
 ---
 
 ## 🔑 Environment Variables
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root **for the Expo app**:
 
 ```bash
-GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
-GOOGLE_SHEETS_API_URL="YOUR_WEB_APP_URL"
-GOOGLE_SHEETS_API_KEY="YOUR_SECRET_KEY_FROM_CODE.GS"
+EXPO_PUBLIC_BACKEND_URL="https://your-vercel-app.vercel.app/api"
 ```
 
-Add `.env` to `.gitignore` to keep your keys safe.
+> Note: Only the backend URL is stored in the client app. All sensitive keys remain on the server.
 
 ---
 
@@ -200,9 +226,7 @@ Scan the QR code with **Expo Go** to launch the app.
            "buildType": "apk"
          },
          "env": {
-           "GEMINI_API_KEY": "${secrets.GEMINI_API_KEY}",
-           "GOOGLE_SHEETS_API_URL": "${secrets.GOOGLE_SHEETS_API_URL}",
-           "GOOGLE_SHEETS_API_KEY": "${secrets.GOOGLE_SHEETS_API_KEY}"
+           "EXPO_PUBLIC_BACKEND_URL": "${secrets.EXPO_PUBLIC_BACKEND_URL}"
          }
        }
      }
@@ -220,28 +244,18 @@ Download the APK from the **EAS build page**.
 
 ## 🌐 API Endpoints
 
-All requests require the `apiKey` matching your secret key from `Code.gs`.
+All client requests go through the **Vercel backend** and require a valid `CLIENT_API_KEY`.
 
-### Transactions
+### `/api/sheets`
 
-* `addTransaction`
-* `updateTransaction`
-* `deleteTransaction`
-* `getTransactions`
+* **Transactions:** `addTransaction`, `updateTransaction`, `deleteTransaction`, `getTransactions`
+* **Budgets:** `setBudget`, `getBudgets`
+* **Investments:** `addInvestment`, `updateInvestment`, `deleteInvestment`, `getInvestments`
 
-### Budgets
+### `/api/gemini`
 
-* `setBudget`
-* `getBudgets`
-
-### Investments
-
-* `addInvestment`
-* `updateInvestment`
-* `deleteInvestment`
-* `getInvestments`
-
-(See [Code.gs](./Code.gs) for implementation details.)
+* Accepts POST requests with `{ prompt: "your text" }`
+* Returns AI-generated insights from the Gemini API.
 
 ---
 
