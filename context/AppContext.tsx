@@ -1,10 +1,11 @@
-// In context/AppContext.tsx
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Network from "expo-network";
 import React, {
   createContext,
   ReactNode,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import * as db from "../database";
@@ -35,40 +36,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isOnline, setIsOnline] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const [lastSyncError, setLastSyncError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [lastSyncTime, setLastSyncTime] = useState<number>(0);
-  const [needsSync, setNeedsSync] = useState(false);
 
-  // Network status check with longer intervals
-  useEffect(() => {
-    const checkNetworkStatus = async () => {
-      try {
-        const networkState = await Network.getNetworkStateAsync();
-        const isConnected = networkState.isConnected ?? false;
-        const isReachable = networkState.isInternetReachable ?? false;
-        const wasOffline = !isOnline;
-        const nowOnline = isConnected && isReachable;
-        
-        setIsOnline(nowOnline);
-        
-        // If we just came back online and need sync, trigger it
-        if (wasOffline && nowOnline && needsSync) {
-          setTimeout(() => performFullSync().catch(console.error), 1000);
-        }
-      } catch (error) {
-        console.error("Failed to check network status:", error);
-        setIsOnline(false);
-      }
-    };
-    
-    checkNetworkStatus();
-    // Increased interval from 30s to 2 minutes
-    const interval = setInterval(checkNetworkStatus, 120000);
-    return () => clearInterval(interval);
-  }, [isOnline, needsSync]);
+  // Use a ref to ensure the initialization logic runs only once.
+  const isInitialized = useRef(false);
 
+  // FIX: Simplified because the database function `getAllTransactions` now handles filtering.
   const refreshLocalData = async (): Promise<{ hasData: boolean }> => {
     try {
       const [localTxs, localBudgets] = await Promise.all([
@@ -77,162 +51,105 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       ]);
       setTransactions(localTxs);
       setBudgets(localBudgets);
-      return { hasData: localTxs.length > 0 || localBudgets.length > 0 };
+      return { hasData: localTxs.length > 0 };
     } catch (error) {
       console.error("Failed to refresh local data", error);
       return { hasData: false };
     }
   };
 
-  const shouldSync = (): boolean => {
-    if (!isOnline) return false;
-    
-    const now = Date.now();
-    const SYNC_COOLDOWN = 5 * 60 * 1000; // 5 minutes minimum between syncs
-    
-    // Always sync if it's been more than 5 minutes since last sync and we need it
-    if (needsSync && (now - lastSyncTime > SYNC_COOLDOWN)) {
-      return true;
-    }
-    
-    return false;
-  };
-
-  const performFullSync = async (): Promise<void> => {
-    if (!shouldSync() && needsSync === false) {
-      console.log("Skipping sync - conditions not met");
+  const triggerFullSync = async (isFullDownload: boolean = false) => {
+    if (isSyncing) return;
+    if (!isOnline) {
+      setLastSyncError("You are offline. Sync will resume when connection is back.");
       return;
     }
-
-    console.log("Starting background sync...");
+    
     setIsSyncing(true);
     setLastSyncError(null);
-    
     try {
-      await db.syncData();
-      setLastSyncTime(Date.now());
-      setNeedsSync(false);
-      console.log("Background sync completed successfully");
+      await db.syncData(isFullDownload);
+      console.log("Sync check completed.");
     } catch (error) {
-      console.error("Background sync failed:", error);
+      console.error("Sync failed:", error);
       setLastSyncError(error instanceof Error ? error.message : "Sync failed");
     } finally {
       await refreshLocalData();
       setIsSyncing(false);
     }
   };
+  
+  // FIX: Unified effect for initialization and continuous network monitoring.
+  useEffect(() => {
+    const handleAppLogic = async () => {
+      // 1. Always check the current network status.
+      const networkState = await Network.getNetworkStateAsync();
+      const isConnected = !!(networkState.isConnected && networkState.isInternetReachable);
+      const cameOnline = !isOnline && isConnected; // Detects transition from offline to online
+      setIsOnline(isConnected);
 
-  const addTransaction = async (
-    txData: Omit<Transaction, "isSynced" | "id" | "uuid">
-  ): Promise<void> => {
-    try {
-      await db.addTransaction(txData);
-      await refreshLocalData();
-      setNeedsSync(true); // Mark that we need sync
-      console.log("Transaction added successfully");
-      
-      // Trigger sync in background if online
-      if (isOnline) {
-        setTimeout(() => performFullSync().catch(console.error), 2000);
+      // 2. On the very first run, initialize the DB and perform initial sync logic.
+      if (!isInitialized.current) {
+        isInitialized.current = true; // Mark as initialized
+        await db.init();
+        const { hasData } = await refreshLocalData();
+        
+        if (isConnected) {
+          if (!hasData) {
+            console.log("First launch with no data. Performing initial full sync.");
+            triggerFullSync(true); // Full download
+          } else {
+            const lastSyncString = await AsyncStorage.getItem('lastFullSyncTimestamp');
+            const lastSyncTime = lastSyncString ? parseInt(lastSyncString, 10) : 0;
+            const oneWeek = 7 * 24 * 60 * 60 * 1000;
+
+            if (Date.now() - lastSyncTime > oneWeek) {
+              console.log("It has been over a week. Performing weekly full sync.");
+              triggerFullSync(true); // Full download
+            } else {
+              console.log("Weekly sync not needed. Uploading any pending changes.");
+              triggerFullSync(false); // Upload only
+            }
+          }
+        } else {
+          console.log("App initialized offline.");
+        }
+      } else if (cameOnline) {
+        // 3. If already initialized and we just came online, upload any pending changes.
+        console.log("App is back online! Uploading pending changes...");
+        triggerFullSync(false); // Upload only
       }
-    } catch (error) {
-      console.error("Failed to add transaction:", error);
-      throw error;
-    }
+    };
+
+    handleAppLogic(); // Run immediately on component mount
+
+    const interval = setInterval(handleAppLogic, 30000); // Re-check every 30 seconds
+    return () => clearInterval(interval);
+  }, [isOnline]); // Dependency on `isOnline` allows detecting the offline -> online transition.
+
+
+  // CUD functions are clean and delegate responsibility to the database layer.
+  const addTransaction = async (txData: Omit<Transaction, "isSynced" | "id" | "uuid">): Promise<void> => {
+    await db.addTransaction(txData);
+    await refreshLocalData();
   };
 
-  const updateTransaction = async (
-    uuid: string,
-    txData: Omit<Transaction, "isSynced" | "id" | "uuid">
-  ) => {
-    try {
-      await db.updateTransaction(uuid, txData);
-      await refreshLocalData();
-      setNeedsSync(true); // Mark that we need sync
-      console.log("Transaction updated successfully");
-      
-      // Trigger sync in background if online
-      if (isOnline) {
-        setTimeout(() => performFullSync().catch(console.error), 2000);
-      }
-    } catch (error) {
-      console.error("Failed to update transaction:", error);
-      throw error;
-    }
+  const updateTransaction = async (uuid: string, txData: Omit<Transaction, "isSynced" | "id" | "uuid">) => {
+    await db.updateTransaction(uuid, txData);
+    await refreshLocalData();
   };
 
   const deleteTransaction = async (uuid: string) => {
-    try {
-      await db.deleteTransaction(uuid);
-      await refreshLocalData();
-      setNeedsSync(true); // Mark that we need sync
-      console.log("Transaction deleted successfully");
-      
-      // Trigger sync in background if online
-      if (isOnline) {
-        setTimeout(() => performFullSync().catch(console.error), 2000);
-      }
-    } catch (error) {
-      console.error("Failed to delete transaction:", error);
-      throw error;
-    }
+    await db.deleteTransaction(uuid);
+    await refreshLocalData();
   };
 
   const setBudget = async (budget: Budget): Promise<void> => {
-    try {
-      await db.setBudgetForMonth(budget);
-      await refreshLocalData();
-      setNeedsSync(true); // Mark that we need sync
-      console.log("Budget set successfully");
-      
-      // Trigger sync in background if online
-      if (isOnline) {
-        setTimeout(() => performFullSync().catch(console.error), 2000);
-      }
-    } catch (error) {
-      console.error("Failed to set budget:", error);
-      throw error;
-    }
+    await db.setBudgetForMonth(budget);
+    await refreshLocalData();
   };
 
-  const clearSyncError = () => {
-    setLastSyncError(null);
-  };
-  
-  // Initial app setup - only sync if no data or first time
-  useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        db.init();
-        const { hasData } = await refreshLocalData();
-        setIsInitialized(true);
-        
-        // Only sync on first launch if no data exists
-        if (!hasData && isOnline) {
-          setNeedsSync(true);
-          await performFullSync();
-        } else if (!hasData) {
-          setNeedsSync(true); // Will sync when online
-        }
-      } catch (error) {
-        console.error("App initialization failed:", error);
-        setIsInitialized(true);
-      }
-    };
-    initializeApp();
-  }, []);
-
-  // Remove the aggressive auto-sync effect - let it be demand-driven
-  useEffect(() => {
-    if (isOnline && isInitialized && needsSync) {
-      const timer = setTimeout(() => {
-        performFullSync().catch((error) => {
-          console.error("Demand-driven sync failed:", error);
-        });
-      }, 5000); // Longer delay
-      return () => clearTimeout(timer);
-    }
-  }, [isOnline, isInitialized, needsSync]);
+  const clearSyncError = () => setLastSyncError(null);
 
   const value: AppContextType = {
     transactions,
@@ -240,7 +157,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     isSyncing,
     isOnline,
     lastSyncError,
-    triggerFullSync: performFullSync,
+    triggerFullSync: () => triggerFullSync(true), 
     addTransaction,
     updateTransaction,
     deleteTransaction,

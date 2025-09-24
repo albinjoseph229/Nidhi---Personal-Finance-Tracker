@@ -11,7 +11,7 @@ import {
   SectionList,
   StyleSheet,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 // Import your themed components and hooks
@@ -23,11 +23,14 @@ import { useTheme } from '../../context/ThemeContext';
 import { Transaction } from '../../database';
 import { useThemeColor } from '../../hooks/use-theme-color';
 
+
+
 export default function HistoryScreen() {
   const router = useRouter();
   const { transactions, isSyncing, triggerFullSync } = useAppData();
   const [searchQuery, setSearchQuery] = useState('');
-  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  // --- CHANGE 1: State now tracks EXPANDED sections, starts empty (all collapsed) ---
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const { theme } = useTheme();
 
   // Fetch all necessary colors from the theme once
@@ -36,44 +39,66 @@ export default function HistoryScreen() {
   const secondaryTextColor = useThemeColor({}, 'tabIconDefault');
   const separatorColor = useThemeColor({}, 'background');
 
-  const sections = useMemo(() => {
-    const filteredTransactions = transactions.filter(tx =>
-      tx.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (tx.notes && tx.notes.toLowerCase().includes(searchQuery.toLowerCase()))
+  // --- CHANGE 2: First useMemo for expensive data processing ---
+  // This only re-runs when transactions or searchQuery change.
+  const processedData = useMemo(() => {
+    const filteredTransactions = transactions.filter(
+      (tx) =>
+        tx.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (tx.notes && tx.notes.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
-    const grouped = filteredTransactions.reduce((acc, tx) => {
-      const monthYear = new Date(tx.date).toLocaleString('en-US', { month: 'long', year: 'numeric' });
-      if (!acc[monthYear]) {
-        acc[monthYear] = { totalIncome: 0, totalExpenses: 0, data: [] };
-      }
-      
-      if (tx.type === 'income') {
-        acc[monthYear].totalIncome += tx.amount;
-      } else {
-        acc[monthYear].totalExpenses += tx.amount;
-      }
-      acc[monthYear].data.push(tx);
-      
-      return acc;
-    }, {} as { [key: string]: { totalIncome: number, totalExpenses: number, data: Transaction[] } });
-    
-    const sortedKeys = Object.keys(grouped).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    const grouped = filteredTransactions.reduce(
+      (acc, tx) => {
+        const monthYear = new Date(tx.date).toLocaleString('en-US', {
+          month: 'long',
+          year: 'numeric',
+        });
+        if (!acc[monthYear]) {
+          acc[monthYear] = { totalIncome: 0, totalExpenses: 0, data: [] };
+        }
 
-    return sortedKeys.map(monthYear => ({
+        if (tx.type === 'income') {
+          acc[monthYear].totalIncome += tx.amount;
+        } else {
+          acc[monthYear].totalExpenses += tx.amount;
+        }
+        acc[monthYear].data.push(tx);
+
+        return acc;
+      },
+      {} as { [key: string]: { totalIncome: number; totalExpenses: number; data: Transaction[] } }
+    );
+
+    const sortedKeys = Object.keys(grouped).sort(
+      (a, b) => new Date(b).getTime() - new Date(a).getTime()
+    );
+
+    return sortedKeys.map((monthYear) => ({
       title: monthYear,
       totalIncome: grouped[monthYear].totalIncome,
       totalExpenses: grouped[monthYear].totalExpenses,
       savings: grouped[monthYear].totalIncome - grouped[monthYear].totalExpenses,
-      data: collapsedSections.has(monthYear) ? [] : grouped[monthYear].data,
+      // Keep the full data here, we'll hide it in the next step
       originalData: grouped[monthYear].data,
     }));
-  }, [transactions, searchQuery, collapsedSections]);
+  }, [transactions, searchQuery]);
+
+  // --- CHANGE 3: Second, lightweight useMemo for display ---
+  // This runs quickly when a section is toggled.
+  const sections = useMemo(() => {
+    return processedData.map((section) => ({
+      ...section,
+      // Show data only if the section title is in the expanded set
+      data: expandedSections.has(section.title) ? section.originalData : [],
+    }));
+  }, [processedData, expandedSections]);
 
   const toggleSection = (sectionTitle: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setCollapsedSections(prev => {
+    setExpandedSections((prev) => {
       const newSet = new Set(prev);
+      // Inverted logic: add to expand, delete to collapse
       newSet.has(sectionTitle) ? newSet.delete(sectionTitle) : newSet.add(sectionTitle);
       return newSet;
     });
@@ -108,7 +133,9 @@ export default function HistoryScreen() {
   };
 
   const renderTransactionItem = ({ item, index, section }: { item: Transaction, index: number, section: any }) => {
-    const isLastItem = index === section.data.length - 1;
+    // The data passed to the section now correctly reflects its collapsed/expanded state,
+    // so we need to check against the originalData length for the last item styling.
+    const isLastItem = index === section.originalData.length - 1;
     return (
       <Pressable
         onPress={() => {
@@ -187,8 +214,9 @@ export default function HistoryScreen() {
                     <ThemedText style={[styles.summaryValue, styles.summaryValueBold]}>{formatAmount(section.savings)}</ThemedText>
                 </View>
             </View>
+            {/* --- CHANGE 4: Update chevron icon based on EXPANDED state --- */}
             <Feather 
-              name={collapsedSections.has(section.title) ? 'chevron-down' : 'chevron-up'} 
+              name={expandedSections.has(section.title) ? 'chevron-up' : 'chevron-down'} 
               size={20} 
               color={secondaryTextColor}
               style={styles.chevronIcon}
