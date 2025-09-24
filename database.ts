@@ -3,10 +3,7 @@ import * as SQLite from "expo-sqlite";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
 import { API_KEY, API_URL } from "./config.js";
-import {
-  formatDateForSheets,
-  parseAndNormalizeToIST
-} from "./utils/dateUtils";
+import { formatDateForSheets, parseAndNormalizeToIST } from "./utils/dateUtils";
 
 const db = SQLite.openDatabaseSync("expenses.db");
 
@@ -82,10 +79,10 @@ export const addTransaction = async (
   txData: Omit<Transaction, "isSynced" | "id" | "uuid">
 ): Promise<void> => {
   const newUuid = uuidv4();
-  
+
   // Normalize date to IST
   const normalizedDate = parseAndNormalizeToIST(txData.date);
-  
+
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `INSERT INTO transactions (uuid, type, amount, category, date, notes, isSynced) VALUES (?, ?, ?, ?, ?, ?, 0);`,
@@ -98,7 +95,9 @@ export const addTransaction = async (
     );
   });
 
-  console.log(`Added transaction: ${newUuid}, Date: ${normalizedDate}, Type: ${txData.type}`);
+  console.log(
+    `Added transaction: ${newUuid}, Date: ${normalizedDate}, Type: ${txData.type}`
+  );
 
   // Start background sync without waiting for it to complete
   uploadUnsyncedTransactions().catch((error) => {
@@ -128,7 +127,7 @@ export const updateTransaction = async (
 ): Promise<void> => {
   // Normalize date to IST
   const normalizedDate = parseAndNormalizeToIST(txData.date);
-  
+
   // Update locally first for immediate UI feedback
   await db.runAsync(
     `UPDATE transactions SET type = ?, amount = ?, category = ?, date = ?, notes = ?, isSynced = 0 WHERE uuid = ?;`,
@@ -139,20 +138,22 @@ export const updateTransaction = async (
     txData.notes,
     uuid
   );
-  
+
   // Trigger background sync with properly formatted date for sheets
-  axios.post(API_URL, {
-    apiKey: API_KEY,
-    action: "updateTransaction",
-    data: { 
-      uuid, 
-      type: txData.type,
-      amount: txData.amount,
-      category: txData.category,
-      date: formatDateForSheets(normalizedDate), // Format for Google Sheets
-      notes: txData.notes
-    },
-  }).catch(error => console.error("Background update sync failed:", error));
+  axios
+    .post(API_URL, {
+      apiKey: API_KEY,
+      action: "updateTransaction",
+      data: {
+        uuid,
+        type: txData.type,
+        amount: txData.amount,
+        category: txData.category,
+        date: formatDateForSheets(normalizedDate), // Format for Google Sheets
+        notes: txData.notes,
+      },
+    })
+    .catch((error) => console.error("Background update sync failed:", error));
 };
 
 export const deleteTransaction = async (uuid: string): Promise<void> => {
@@ -160,11 +161,13 @@ export const deleteTransaction = async (uuid: string): Promise<void> => {
   await db.runAsync(`DELETE FROM transactions WHERE uuid = ?;`, uuid);
 
   // Trigger background sync
-  axios.post(API_URL, {
-    apiKey: API_KEY,
-    action: "deleteTransaction",
-    data: { uuid },
-  }).catch(error => console.error("Background delete sync failed:", error));
+  axios
+    .post(API_URL, {
+      apiKey: API_KEY,
+      action: "deleteTransaction",
+      data: { uuid },
+    })
+    .catch((error) => console.error("Background delete sync failed:", error));
 };
 
 const uploadUnsyncedTransactions = async (): Promise<void> => {
@@ -174,31 +177,58 @@ const uploadUnsyncedTransactions = async (): Promise<void> => {
 
     for (const tx of unsyncedTxs) {
       try {
-        await axios.post(API_URL, {
+        console.log(`Processing transaction: ${tx.uuid}`);
+        console.log(`Original date: ${tx.date}`);
+
+        // Format date for sheets
+        const formattedDate = formatDateForSheets(tx.date);
+        console.log(`Formatted date for sheets: ${formattedDate}`);
+
+        // Validate that the formatted date is correct
+        if (!formattedDate || formattedDate.includes("NaN")) {
+          console.error(
+            `Invalid formatted date for transaction ${tx.uuid}:`,
+            formattedDate
+          );
+          continue; // Skip this transaction
+        }
+
+        const payload = {
           apiKey: API_KEY,
           action: "addTransaction",
           data: {
             uuid: tx.uuid,
-            date: formatDateForSheets(tx.date), // Convert to sheets format (YYYY-MM-DD in IST)
+            date: formattedDate, // Use validated formatted date
             category: tx.category,
             amount: tx.amount,
             notes: tx.notes,
             type: tx.type,
           },
-        });
+        };
+
+        console.log(`Sending payload:`, JSON.stringify(payload, null, 2));
+
+        await axios.post(API_URL, payload);
 
         // Mark as synced
         await db.runAsync(
           `UPDATE transactions SET isSynced = 1 WHERE uuid = ?;`,
           tx.uuid
         );
-        console.log(`Synced transaction ${tx.uuid} with date ${formatDateForSheets(tx.date)}`);
-      } catch (error) {
+        console.log(
+          `Successfully synced transaction ${tx.uuid} with date ${formattedDate}`
+        );
+      } catch (error: any) {
         console.error(`Failed to sync transaction ${tx.uuid}:`, error);
+        // Log the axios error details if available
+        if (error && typeof error === "object" && error.response) {
+          console.error("Server response:", error.response.data);
+          console.error("Status:", error.response.status);
+        }
         // Continue with other transactions
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to upload unsynced transactions:", error);
   }
 };
@@ -259,8 +289,10 @@ export const syncData = async (): Promise<void> => {
     await db.withTransactionAsync(async () => {
       for (const sheetTx of sheetTransactions) {
         // Normalize the date from sheets to IST
-        const normalizedDate = parseAndNormalizeToIST(sheetTx.Date || sheetTx.date);
-        
+        const normalizedDate = parseAndNormalizeToIST(
+          sheetTx.Date || sheetTx.date
+        );
+
         // Check if transaction already exists
         const existing = await db.getFirstAsync<{ count: number }>(
           `SELECT COUNT(*) as count FROM transactions WHERE uuid = ?;`,
@@ -268,25 +300,27 @@ export const syncData = async (): Promise<void> => {
         );
 
         // Handle type field properly
-        let transactionType = 'expense'; // default
+        let transactionType = "expense"; // default
         if (sheetTx.Type) {
           transactionType = sheetTx.Type.toString().toLowerCase();
         } else if (sheetTx.type) {
           transactionType = sheetTx.type.toString().toLowerCase();
         }
         // Ensure it's either 'income' or 'expense'
-        transactionType = (transactionType === 'income') ? 'income' : 'expense';
+        transactionType = transactionType === "income" ? "income" : "expense";
 
         const transactionData = {
           uuid: sheetTx.uuid,
           type: transactionType,
           amount: parseFloat(sheetTx.Amount || sheetTx.amount || 0),
-          category: sheetTx.Category || sheetTx.category || 'Other',
+          category: sheetTx.Category || sheetTx.category || "Other",
           date: normalizedDate,
-          notes: sheetTx.Notes || sheetTx.notes || ""
+          notes: sheetTx.Notes || sheetTx.notes || "",
         };
 
-        console.log(`Processing transaction: ${transactionData.uuid}, Date: ${transactionData.date}, Type: ${transactionData.type}`);
+        console.log(
+          `Processing transaction: ${transactionData.uuid}, Date: ${transactionData.date}, Type: ${transactionData.type}`
+        );
 
         if (!existing || existing.count === 0) {
           // Insert new transaction
@@ -330,8 +364,9 @@ export const syncData = async (): Promise<void> => {
       for (const budget of sheetBudgets) {
         // Handle both possible field names
         const monthYear = budget.MonthYear || budget.monthYear;
-        const amount = budget.BudgetAmount || budget.amount || budget.budgetAmount;
-        
+        const amount =
+          budget.BudgetAmount || budget.amount || budget.budgetAmount;
+
         if (monthYear && amount !== undefined) {
           await db.runAsync(
             `INSERT OR REPLACE INTO budgets (monthYear, amount) VALUES (?, ?);`,

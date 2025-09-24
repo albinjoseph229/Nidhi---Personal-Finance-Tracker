@@ -585,7 +585,7 @@ export default function ReportsScreen() {
                       chartConfig={chartConfig}
                       accessor="amount"
                       backgroundColor="transparent"
-                      paddingLeft="80"
+                      paddingLeft="60"
                       center={[20, 0]}
                       absolute
                       hasLegend={false}
