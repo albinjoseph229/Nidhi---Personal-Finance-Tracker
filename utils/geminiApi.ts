@@ -1,7 +1,7 @@
 // In utils/geminiApi.ts
 import axios from "axios";
-import { GEMINI_API_KEY } from "../config";
 import { Transaction } from "../database";
+const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
 // Enhanced structure for more comprehensive reports
 export interface StructuredReport {
