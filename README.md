@@ -27,12 +27,13 @@ A comprehensive, privacy-first personal finance tracker powered by **React Nativ
 
 * 💵 **Income & Expense Tracking** – Add, edit, and delete both income and expense transactions.
 * 📅 **Monthly Budgeting** – Set monthly budgets and track spending in real-time.
-* 🧾 **Detailed History** – View transactions grouped by month with income, expenses, and savings summaries.
+* 📈 **Investment Tracking** – Record stock, mutual fund, crypto, or other investments with value updates over time.
+* 🧾 **Detailed History** – View transactions grouped by month with income, expenses, savings, and investments summaries.
 * 📊 **Advanced Reports** – Visualize data with dynamic pie and bar charts.
 * 🤖 **AI-Powered Analysis** – Get personalized financial wellness reports using the Google Gemini API.
-* 📑 **PDF & CSV Export** – Export full transaction history as PDF or CSV.
+* 📑 **PDF & CSV Export** – Export full transaction and investment history as PDF or CSV.
 * ☁️ **Cloud Sync** – Securely sync data to your private Google Sheet.
-* 📴 **Offline Mode with Local Database** – Transactions are first stored in a **local SQLite database**. They are automatically synced to Google Sheets when internet is available.
+* 📴 **Offline Mode with Local Database** – Transactions and investments are first stored in a **local SQLite database**. They are automatically synced to Google Sheets when internet is available.
 * 🔄 **Background Syncing** – Changes are queued locally and synced periodically.
 * 🌙 **Light & Dark Mode** – Consistent, theme-aware design.
 * 🔐 **Secure Authentication** – Sign in securely with Google.
@@ -84,7 +85,7 @@ User Interface (React Native Screens)
  Background Sync Service      ↔      Google Sheets API (Apps Script Backend)
 ```
 
-* **SQLite (Local Storage):** Stores all transactions and budgets offline.
+* **SQLite (Local Storage):** Stores all transactions, budgets, and investments offline.
 * **AppContext:** Acts as a bridge between the UI and the local database, ensuring instant updates.
 * **Background Sync:** Periodically pushes pending changes from SQLite to Google Sheets when online.
 * **Google Sheets API:** Serves as the cloud backend for backup, analytics, and cross-device access.
@@ -139,10 +140,11 @@ This layered approach ensures:
 The `Code.gs` file is located in the **root directory** of this project. Copy its contents into your Google Apps Script project to enable backend functionality.
 
 1. Create a new Google Sheet and name it **Nidhi Finance Tracker**.
-2. Add two tabs:
+2. Add three tabs:
 
    * **Transactions** → Headers: `Date | Category | Amount | Notes | Type | uuid`
    * **Budgets** → Headers: `MonthYear | BudgetAmount`
+   * **Investments** → Headers: `Date | Asset | Type | Units | PricePerUnit | TotalValue | Notes | uuid`
 3. In Google Sheets → **Extensions > Apps Script**, paste the contents of [`Code.gs`](./Code.gs).
 4. Replace the placeholders:
 
@@ -231,6 +233,13 @@ All requests require the `apiKey` matching your secret key from `Code.gs`.
 
 * `setBudget`
 * `getBudgets`
+
+### Investments
+
+* `addInvestment`
+* `updateInvestment`
+* `deleteInvestment`
+* `getInvestments`
 
 (See [Code.gs](./Code.gs) for implementation details.)
 

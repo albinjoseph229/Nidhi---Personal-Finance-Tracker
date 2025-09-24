@@ -13,6 +13,7 @@ const SECRET_API_key = ""; // e.g., "my-secret-123"
 // --- SHEET NAMES ---
 const TRANSACTIONS_SHEET = "Transactions";
 const BUDGETS_SHEET = "Budgets";
+const INVESTMENTS_SHEET = "Investments";
 
 // --- Main POST function (handles writing data) ---
 function doPost(e) {
@@ -23,14 +24,13 @@ function doPost(e) {
   }
 
   switch (requestData.action) {
-    case "addTransaction":
-      return addTransaction(requestData.data);
-    case "setBudget":
-      return setBudget(requestData.data);
-    case "updateTransaction": // <-- ADD THIS
-      return updateTransaction(requestData.data);
-    case "deleteTransaction": // <-- ADD THIS
-      return deleteTransaction(requestData.data);
+    case "addTransaction": return addTransaction(requestData.data);
+    case "updateTransaction": return updateTransaction(requestData.data);
+    case "deleteTransaction": return deleteTransaction(requestData.data);
+    case "setBudget": return setBudget(requestData.data);
+    case "addInvestment": return addInvestment(requestData.data);
+    case "updateInvestment": return updateInvestment(requestData.data);
+    case "deleteInvestment": return deleteInvestment(requestData.data); // <-- ADD THIS
     default:
       return createJsonResponse({ "status": "error", "message": "Invalid action" });
   }
@@ -39,7 +39,7 @@ function doPost(e) {
 // --- Main GET function (handles reading data) ---
 function doGet(e) {
   if (e.parameter.apiKey !== SECRET_API_key) {
-     return createJsonResponse({ "status": "error", "message": "Unauthorized" });
+    return createJsonResponse({ "status": "error", "message": "Unauthorized" });
   }
 
   switch (e.parameter.action) {
@@ -47,6 +47,8 @@ function doGet(e) {
       return getSheetData(TRANSACTIONS_SHEET);
     case "getBudgets":
       return getBudgetData(); // Use specialized function for budgets
+    case "getInvestments":
+      return getSheetData(INVESTMENTS_SHEET);
     default:
       return createJsonResponse({ "status": "error", "message": "Invalid action" });
   }
@@ -57,35 +59,35 @@ function doGet(e) {
 function addTransaction(data) {
   try {
     const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(TRANSACTIONS_SHEET);
-    
+
     // Destructure and provide defaults
-    const { 
-      date, 
-      category, 
-      amount, 
-      notes, 
-      type, 
-      uuid 
+    const {
+      date,
+      category,
+      amount,
+      notes,
+      type,
+      uuid
     } = data;
-    
+
     // Validate that we have the required fields
     if (!date || !category || !amount || !type || !uuid) {
       console.error("Missing required fields:", data);
-      return createJsonResponse({ 
-        "status": "error", 
-        "message": "Missing required fields: date, category, amount, type, uuid" 
+      return createJsonResponse({
+        "status": "error",
+        "message": "Missing required fields: date, category, amount, type, uuid"
       });
     }
-    
+
     // Ensure type is either 'income' or 'expense'
     const validType = (type === 'income' || type === 'expense') ? type : 'expense';
-    
+
     // Format date consistently
     const formattedDate = new Date(date).toISOString().split('T')[0]; // YYYY-MM-DD
-    
+
     // Log what we're about to save (for debugging)
     console.log(`Saving transaction: UUID=${uuid}, Type=${validType}, Amount=${amount}, Category=${category}, Date=${formattedDate}`);
-    
+
     // Append to sheet - MAKE SURE THE COLUMN ORDER MATCHES YOUR HEADER ROW
     // Assuming columns are: Date, Category, Amount, Notes, Type, UUID
     sheet.appendRow([
@@ -96,16 +98,16 @@ function addTransaction(data) {
       validType,  // This is critical - make sure this matches your column
       uuid
     ]);
-    
-    return createJsonResponse({ 
-      "status": "success", 
-      "message": `Transaction added: ${validType} of ${amount}` 
+
+    return createJsonResponse({
+      "status": "success",
+      "message": `Transaction added: ${validType} of ${amount}`
     });
   } catch (error) {
     console.error("Error in addTransaction:", error);
-    return createJsonResponse({ 
-      "status": "error", 
-      "message": error.message 
+    return createJsonResponse({
+      "status": "error",
+      "message": error.message
     });
   }
 }
@@ -115,7 +117,7 @@ function setBudget(data) {
     const { MonthYear, BudgetAmount } = data;
     const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(BUDGETS_SHEET);
     const values = sheet.getDataRange().getValues();
-    
+
     for (let i = 1; i < values.length; i++) {
       // Convert to string and trim for comparison
       if (values[i][0].toString().trim() === MonthYear.toString().trim()) {
@@ -123,7 +125,7 @@ function setBudget(data) {
         return createJsonResponse({ "status": "success", "message": "Budget updated" });
       }
     }
-    
+
     // Make sure MonthYear is stored as text
     sheet.appendRow([`'${MonthYear}`, BudgetAmount]); // The ' prefix forces text format
     return createJsonResponse({ "status": "success", "message": "Budget set" });
@@ -137,25 +139,25 @@ function getSheetData(sheetName) {
   try {
     const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(sheetName);
     const data = sheet.getDataRange().getValues();
-    
+
     if (data.length === 0) {
       return createJsonResponse({ "status": "success", "data": [] });
     }
-    
+
     const headers = data[0]; // First row is headers
     const rows = data.slice(1); // Rest are data rows
-    
+
     console.log(`Headers found: ${headers.join(', ')}`); // Debug log
-    
+
     const jsonArray = rows.map((row, index) => {
       let obj = {};
       headers.forEach((header, colIndex) => {
         if (header) {
           const cellValue = row[colIndex];
-          
+
           // Handle different column names (case-insensitive)
           const headerLower = header.toString().toLowerCase();
-          
+
           if (headerLower === 'type') {
             // Ensure type is properly set
             const typeValue = cellValue ? cellValue.toString().toLowerCase() : 'expense';
@@ -176,10 +178,10 @@ function getSheetData(sheetName) {
           }
         }
       });
-      
+
       // Log each transaction for debugging
       console.log(`Row ${index + 2}: UUID=${obj.uuid}, Type=${obj.Type}, Amount=${obj.Amount}`);
-      
+
       return obj;
     });
 
@@ -190,7 +192,199 @@ function getSheetData(sheetName) {
     return createJsonResponse({ "status": "error", "message": error.message });
   }
 }
+// CORRECTED INVESTMENT FUNCTIONS - Replace your existing ones with these
 
+function addInvestment(data) {
+  try {
+    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(INVESTMENTS_SHEET);
+    
+    // Destructure and validate required fields
+    const { 
+      uuid, 
+      name, 
+      type, 
+      quantity, 
+      purchasePrice, 
+      purchaseDate, 
+      currentValue, 
+      status 
+    } = data;
+
+    // Validate required fields
+    if (!uuid || !name || !type) {
+      console.error("Missing required investment fields:", data);
+      return createJsonResponse({
+        "status": "error",
+        "message": "Missing required fields: uuid, name, type"
+      });
+    }
+
+    console.log(`Saving investment: UUID=${uuid}, Name=${name}, Type=${type}`);
+
+    // Add investment - column order should match your sheet headers
+    sheet.appendRow([
+      uuid, 
+      name, 
+      type, 
+      quantity || 0, 
+      purchasePrice || 0, 
+      purchaseDate || "", 
+      currentValue || 0, 
+      status || "active", 
+      "" // soldPrice initially empty
+    ]);
+
+    return createJsonResponse({ 
+      "status": "success", 
+      "message": `Investment added: ${name}` 
+    });
+  } catch (error) {
+    console.error("Error in addInvestment:", error);
+    return createJsonResponse({ 
+      "status": "error", 
+      "message": error.message 
+    });
+  }
+}
+
+function updateInvestment(data) {
+  try {
+    const { 
+      uuid, 
+      name, 
+      type, 
+      quantity, 
+      purchasePrice, 
+      purchaseDate, 
+      currentValue, 
+      status, 
+      soldPrice 
+    } = data;
+
+    if (!uuid) {
+      return createJsonResponse({ 
+        "status": "error", 
+        "message": "UUID is required for update" 
+      });
+    }
+
+    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(INVESTMENTS_SHEET);
+    const dataRange = sheet.getDataRange();
+    const values = dataRange.getValues();
+
+    // Get headers to find column indices dynamically
+    const headers = values[0];
+    const uuidColumnIndex = headers.findIndex(header => 
+      header.toLowerCase() === 'uuid'
+    );
+
+    if (uuidColumnIndex === -1) {
+      return createJsonResponse({ 
+        "status": "error", 
+        "message": "UUID column not found" 
+      });
+    }
+
+    console.log(`Looking for investment with UUID: ${uuid}`);
+
+    // Search for the investment with matching UUID
+    for (let i = 1; i < values.length; i++) {
+      const currentUuid = values[i][uuidColumnIndex];
+      
+      if (currentUuid && currentUuid.toString().trim() === uuid.toString().trim()) {
+        console.log(`Found matching investment at row ${i + 1}, updating...`);
+        
+        // Update the entire row - make sure column count matches your sheet
+        sheet.getRange(i + 1, 1, 1, 9).setValues([[
+          uuid, 
+          name, 
+          type, 
+          quantity || 0, 
+          purchasePrice || 0, 
+          purchaseDate || "", 
+          currentValue || 0, 
+          status || "active", 
+          soldPrice || ""
+        ]]);
+        
+        console.log(`Successfully updated investment: ${uuid}`);
+        return createJsonResponse({ 
+          "status": "success", 
+          "message": `Investment updated: ${name}` 
+        });
+      }
+    }
+
+    console.log(`Investment with UUID ${uuid} not found`);
+    return createJsonResponse({ 
+      "status": "error", 
+      "message": "Investment not found" 
+    });
+  } catch (error) {
+    console.error("Error in updateInvestment:", error);
+    return createJsonResponse({ 
+      "status": "error", 
+      "message": error.message 
+    });
+  }
+}
+
+function deleteInvestment(data) {
+  try {
+    const { uuid } = data;
+    if (!uuid) {
+      return createJsonResponse({ 
+        "status": "error", 
+        "message": "UUID is required for deletion" 
+      });
+    }
+
+    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(INVESTMENTS_SHEET);
+    const dataRange = sheet.getDataRange();
+    const values = dataRange.getValues();
+
+    // Dynamically find the UUID column index (like transaction functions)
+    const headers = values[0];
+    const uuidColumnIndex = headers.findIndex(header => 
+      header.toLowerCase() === 'uuid'
+    );
+
+    if (uuidColumnIndex === -1) {
+      return createJsonResponse({ 
+        "status": "error", 
+        "message": "UUID column not found in investments sheet" 
+      });
+    }
+
+    console.log(`Looking to delete investment with UUID: ${uuid}`);
+
+    // Loop backwards when deleting rows to avoid index shifting issues
+    for (let i = values.length - 1; i >= 1; i--) {
+      const currentUuid = values[i][uuidColumnIndex];
+      
+      if (currentUuid && currentUuid.toString().trim() === uuid.toString().trim()) {
+        console.log(`Deleting investment at row ${i + 1}`);
+        sheet.deleteRow(i + 1); // sheet rows are 1-based
+        return createJsonResponse({ 
+          "status": "success", 
+          "message": "Investment deleted" 
+        });
+      }
+    }
+
+    console.log(`Investment with UUID ${uuid} not found for deletion`);
+    return createJsonResponse({ 
+      "status": "error", 
+      "message": "Investment not found" 
+    });
+  } catch (error) {
+    console.error("Error in deleteInvestment:", error);
+    return createJsonResponse({ 
+      "status": "error", 
+      "message": error.message 
+    });
+  }
+}
 // Specialized function to handle budget data properly
 function getBudgetData() {
   try {
@@ -238,11 +432,11 @@ function createJsonResponse(obj) {
 function updateTransaction(data) {
   try {
     const { uuid, date, category, amount, notes, type } = data;
-    
+
     if (!uuid) {
       return createJsonResponse({ "status": "error", "message": "UUID is required for update" });
     }
-    
+
     const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(TRANSACTIONS_SHEET);
     const dataRange = sheet.getDataRange();
     const values = dataRange.getValues();
@@ -261,34 +455,34 @@ function updateTransaction(data) {
     }
 
     console.log(`Looking for transaction with UUID: ${uuid}`);
-    
+
     // Search for the transaction with the matching UUID
     for (let i = 1; i < values.length; i++) {
       const currentUuid = values[i][uuidColumnIndex];
       console.log(`Row ${i + 1}: UUID = '${currentUuid}', Looking for: '${uuid}'`);
-      
+
       if (currentUuid && currentUuid.toString().trim() === uuid.toString().trim()) {
         console.log(`Found matching transaction at row ${i + 1}, updating...`);
-        
+
         // Format date consistently
         const formattedDate = new Date(date).toISOString().split('T')[0]; // YYYY-MM-DD
         const validType = (type === 'income' || type === 'expense') ? type : 'expense';
-        
+
         // Update each column individually to avoid array length issues
         if (dateColumnIndex !== -1) sheet.getRange(i + 1, dateColumnIndex + 1).setValue(formattedDate);
         if (categoryColumnIndex !== -1) sheet.getRange(i + 1, categoryColumnIndex + 1).setValue(category);
         if (amountColumnIndex !== -1) sheet.getRange(i + 1, amountColumnIndex + 1).setValue(parseFloat(amount));
         if (notesColumnIndex !== -1) sheet.getRange(i + 1, notesColumnIndex + 1).setValue(notes || '');
         if (typeColumnIndex !== -1) sheet.getRange(i + 1, typeColumnIndex + 1).setValue(validType);
-        
+
         console.log(`Successfully updated transaction: ${uuid}`);
-        return createJsonResponse({ 
-          "status": "success", 
-          "message": `Transaction updated: ${validType} of ${amount}` 
+        return createJsonResponse({
+          "status": "success",
+          "message": `Transaction updated: ${validType} of ${amount}`
         });
       }
     }
-    
+
     console.log(`Transaction with UUID ${uuid} not found`);
     return createJsonResponse({ "status": "error", "message": "Transaction not found" });
   } catch (error) {
@@ -304,11 +498,11 @@ function deleteTransaction(data) {
     if (!uuid) {
       return createJsonResponse({ "status": "error", "message": "UUID is required for deletion" });
     }
-    
+
     const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(TRANSACTIONS_SHEET);
     const dataRange = sheet.getDataRange();
     const values = dataRange.getValues();
-    
+
     // Dynamically find the UUID column index
     const headers = values[0];
     const uuidColumnIndex = headers.findIndex(header => header.toLowerCase() === 'uuid');
