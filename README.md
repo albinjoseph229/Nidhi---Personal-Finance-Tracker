@@ -1,20 +1,20 @@
 <p align="center">
-<img src="https://storage.googleapis.com/gemini-prod-us-east1-9535/v1/a0/b4/5d/image_a0b45d.png?Expires=1727376000&GoogleAccessId=gemini-prod-us-east1-9535%40gemini-v1-383211.iam.gserviceaccount.com&Signature=W%2BO9y3G5l9f6o%2Bw7y////////wE%3D" alt="Nidhi App Banner" width="800"/>
+  <img src="assets/images/nidhi.png" alt="Nidhi App Logo" width="200"/>
 </p>
 
 <h1 align="center">Nidhi - Personal Finance Tracker</h1>
 
 <p align="center">
-A comprehensive, cross-platform personal finance tracker built with <b>React Native</b> and <b>Expo</b>.
+  A comprehensive, cross-platform personal finance tracker built with <b>React Native</b> and <b>Expo</b>.
 </p>
 
 <p align="center">
-<a href="https://opensource.org/licenses/MIT">
-<img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg"/>
-</a>
-<a href="https://github.com/your-github-username/nidhi/stargazers">
-<img alt="GitHub stars" src="https://img.shields.io/github/stars/your-github-username/nidhi?style=social"/>
-</a>
+  <a href="https://opensource.org/licenses/MIT">
+    <img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg"/>
+  </a>
+  <a href="https://github.com/your-github-username/nidhi/stargazers">
+    <img alt="GitHub stars" src="https://img.shields.io/github/stars/your-github-username/nidhi?style=social"/>
+  </a>
 </p>
 
 ---
@@ -36,31 +36,61 @@ A comprehensive, cross-platform personal finance tracker built with <b>React Nat
 
 ## 📸 Screenshots
 
-Here's a sneak peek of **Nidhi** in action. The app supports a clean, consistent design in both light and dark modes.
-
-### Light Mode
-
-\[Your light mode screenshot here]
-
-### Dark Mode
-
-\[Your dark mode screenshot here]
+Here’s a detailed look at **Nidhi** in action. The app supports a clean, consistent design in both light and dark modes.
 
 ### Home Screen
 
-\[Another light mode screenshot here]
+#### Light Mode
+
+<img src="assets/images/screenshots/home-light.jpg" alt="Home Light" width="250"/>
+
+#### Dark Mode
+
+<img src="assets/images/screenshots/home-dark.jpg" alt="Home Dark" width="250"/>
+
+---
 
 ### Reports Screen
 
-\[Another dark mode screenshot here]
+#### Light Mode
+
+<img src="assets/images/screenshots/reports-light.jpg" alt="Reports Light" width="250"/>
+
+#### Dark Mode
+
+<img src="assets/images/screenshots/reports-dark.jpg" alt="Reports Dark" width="250"/>
+
+---
 
 ### History Screen
 
-\[History screen screenshot here]
+#### Light Mode
 
-### Add Expense Screen
+<img src="assets/images/screenshots/history-light.jpg" alt="History Light" width="250"/>
 
-\[Add expense screen screenshot here]
+#### Dark Mode
+
+<img src="assets/images/screenshots/history-dark.jpg" alt="History Dark" width="250"/>
+
+---
+
+### Add Income / Expense
+
+#### Add Income (Dark Mode)
+
+<img src="assets/images/screenshots/add-income-dark.jpg" alt="Add Income Dark" width="250"/>
+
+#### Add Expense (Light Mode)
+
+<img src="assets/images/screenshots/add-expense-light.jpg" alt="Add Expense Light" width="250"/>
+
+---
+
+### Settings Screen
+
+#### Light Mode
+
+<img src="assets/images/screenshots/settings-light.jpg" alt="Settings Light" width="250"/>
 
 ---
 
@@ -121,14 +151,15 @@ eas login
 #### Step 3.2: Deploy Google Apps Script
 
 1. In Google Sheet → Extensions → Apps Script.
-2. Paste code from `google-apps-script/Code.gs`.
-3. Replace `YOUR_GOOGLE_SHEET_ID_HERE` with your Sheet ID.
-4. Deploy as Web App:
+2. Open the `Code.gs` file located inside the **root directory** of this project.
+3. Copy its contents and paste them into the Apps Script editor.
+4. Replace `YOUR_GOOGLE_SHEET_ID_HERE` with your Sheet ID.
+5. Deploy as Web App:
 
    * Description: **Nidhi API v1**
    * Execute as: **Me**
    * Who has access: **Anyone**
-5. Copy the **Web App URL**.
+6. Copy the **Web App URL**.
 
 ### 4. Gemini API Key Setup
 
