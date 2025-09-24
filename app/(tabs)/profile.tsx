@@ -1,7 +1,9 @@
 // In app/(tabs)/profile.tsx
 import { Feather } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 // Import our themed components and hooks
@@ -10,12 +12,17 @@ import { ThemedView } from '../../components/themed-view';
 import { useAppData } from '../../context/AppContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useThemeColor } from '../../hooks/use-theme-color';
-import { generateFinancialReport } from '../../utils/pdfExport';
+import { generateReportWithGemini } from '../../utils/geminiApi';
+import { generateFinancialReport as generatePdfReport } from '../../utils/pdfExport';
 
 export default function ProfileScreen() {
   const { theme, toggleTheme } = useTheme();
   const { isSyncing, triggerFullSync, transactions } = useAppData();
-  const [isExporting, setIsExporting] = useState(false);
+  const router = useRouter();
+  
+  const [isGeneratingAiReport, setIsGeneratingAiReport] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [hasExistingReport, setHasExistingReport] = useState(false);
 
   // Get dynamic colors for styling
   const cardColor = useThemeColor({}, 'card');
@@ -23,27 +30,54 @@ export default function ProfileScreen() {
   const secondaryTextColor = useThemeColor({}, 'tabIconDefault');
   const separatorColor = useThemeColor({}, 'background');
 
-  const handleExportData = async () => {
+  useEffect(() => {
+    const checkForReport = async () => {
+      const existingReport = await AsyncStorage.getItem('financial-report');
+      setHasExistingReport(!!existingReport);
+    };
+    checkForReport();
+  }, []);
+
+  const handleGenerateAiReport = async () => {
+    if (transactions.length < 5) {
+      return Alert.alert("Not Enough Data", "Please add at least 5 transactions to generate a report.");
+    }
+    setIsGeneratingAiReport(true);
+    try {
+      const report = await generateReportWithGemini(transactions);
+      // Convert the report object to a JSON string before saving
+      await AsyncStorage.setItem('financial-report', JSON.stringify(report)); 
+      setHasExistingReport(true);
+      router.push('/financial-report');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      Alert.alert("Error Generating Report", errorMessage);
+    } finally {
+      setIsGeneratingAiReport(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
     if (transactions.length === 0) {
       return Alert.alert("No Data", "There are no transactions to export.");
     }
-
+    
     Alert.alert(
-      "Export Financial Report",
-      `This will generate a detailed PDF report for all your data. Continue?`,
+      "Export to PDF",
+      "This will generate a PDF file of all your transaction data. Continue?",
       [
         { text: "Cancel", style: "cancel" },
-        { 
-          text: "Export", 
+        {
+          text: "Export",
           onPress: async () => {
-            setIsExporting(true);
+            setIsExportingPdf(true);
             try {
-              await generateFinancialReport(transactions);
+              await generatePdfReport(transactions);
             } catch (error) {
-              Alert.alert("Error", "Failed to export report. Please try again.");
+              Alert.alert("Error", "Failed to export PDF report. Please try again.");
               console.error('Export failed:', error);
             } finally {
-              setIsExporting(false);
+              setIsExportingPdf(false);
             }
           }
         }
@@ -94,46 +128,50 @@ export default function ProfileScreen() {
       </ThemedView>
 
       <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
-        <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Data</ThemedText>
+        <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Data & Reports</ThemedText>
         
         <Pressable 
           style={[styles.row, { borderBottomColor: separatorColor }]} 
           onPress={handleFullSync}
           disabled={isSyncing}
         >
-          <Feather 
-            name="refresh-cw" 
-            size={20} 
-            style={[styles.rowIcon, { color: secondaryTextColor }]} 
-          />
+          <Feather name="refresh-cw" size={20} style={[styles.rowIcon, { color: secondaryTextColor }]} />
           <ThemedText style={[styles.rowLabel, { opacity: isSyncing ? 0.5 : 1 }]}>
             {isSyncing ? "Syncing..." : "Full Data Sync"}
           </ThemedText>
-          {isSyncing ? (
-            <ActivityIndicator color={secondaryTextColor} />
-          ) : (
-            <Feather name="chevron-right" size={16} color={secondaryTextColor} />
-          )}
+          {isSyncing ? <ActivityIndicator color={secondaryTextColor} /> : <Feather name="chevron-right" size={16} color={secondaryTextColor} />}
         </Pressable>
 
         <Pressable 
-          style={[styles.row, { borderBottomWidth: 0 }]} 
-          onPress={handleExportData}
-          disabled={isExporting}
+          style={[styles.row, { borderBottomColor: separatorColor }]} 
+          onPress={handleGenerateAiReport}
+          disabled={isGeneratingAiReport}
         >
-          <Feather 
-            name="download" 
-            size={20} 
-            style={[styles.rowIcon, { color: secondaryTextColor }]} 
-          />
-          <ThemedText style={[styles.rowLabel, { opacity: isExporting ? 0.5 : 1 }]}>
-            {isExporting ? "Exporting..." : "Export Financial Report"}
+          <Feather name="star" size={20} style={[styles.rowIcon, { color: secondaryTextColor }]} />
+          <ThemedText style={[styles.rowLabel, { opacity: isGeneratingAiReport ? 0.5 : 1 }]}>
+            {isGeneratingAiReport ? "Generating Report..." : "Generate AI Report"}
           </ThemedText>
-          {isExporting ? (
-            <ActivityIndicator color={secondaryTextColor} />
-          ) : (
+          {isGeneratingAiReport ? <ActivityIndicator color={secondaryTextColor} /> : <Feather name="chevron-right" size={16} color={secondaryTextColor} />}
+        </Pressable>
+
+        {hasExistingReport && (
+          <Pressable style={[styles.row, { borderBottomColor: separatorColor }]} onPress={() => router.push('/financial-report')}>
+            <Feather name="file-text" size={20} style={[styles.rowIcon, { color: secondaryTextColor }]} />
+            <ThemedText style={styles.rowLabel}>View Last AI Report</ThemedText>
             <Feather name="chevron-right" size={16} color={secondaryTextColor} />
-          )}
+          </Pressable>
+        )}
+
+        <Pressable 
+          style={[styles.row, { borderBottomWidth: 0 }]} 
+          onPress={handleExportPdf}
+          disabled={isExportingPdf}
+        >
+          <Feather name="download" size={20} style={[styles.rowIcon, { color: secondaryTextColor }]} />
+          <ThemedText style={[styles.rowLabel, { opacity: isExportingPdf ? 0.5 : 1 }]}>
+            {isExportingPdf ? "Exporting PDF..." : "Export to PDF"}
+          </ThemedText>
+          {isExportingPdf ? <ActivityIndicator color={secondaryTextColor} /> : <Feather name="chevron-right" size={16} color={secondaryTextColor} />}
         </Pressable>
       </ThemedView>
     </ThemedView>
