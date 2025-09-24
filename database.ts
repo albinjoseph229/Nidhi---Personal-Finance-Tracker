@@ -1,17 +1,16 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
 import * as SQLite from "expo-sqlite";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
 import { formatDateForSheets, parseAndNormalizeToIST } from "./utils/dateUtils";
 
-const API_KEY = process.env.GOOGLE_SHEETS_API_KEY;
-const API_URL = process.env.GOOGLE_SHEETS_API_URL;
+// --- REMOVED: Direct Google Sheets API configuration ---
+// const API_KEY = process.env.GOOGLE_SHEETS_API_KEY;
+// const API_URL = process.env.GOOGLE_SHEETS_API_URL;
+// if (!API_KEY || !API_URL) { ... }
 
-// Add this check to ensure the variables are loaded
-if (!API_KEY || !API_URL) {
-  throw new Error("API Key or URL is not defined in environment variables. Please check your .env file.");
-}
+// --- NEW: Backend URL configuration ---
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 const db = SQLite.openDatabaseSync("expenses.db");
 
@@ -30,7 +29,7 @@ const queueUnsyncedUpload = () => {
     
     Promise.all([
       uploadUnsyncedTransactions(),
-      uploadUnsyncedInvestments() // NEW: Also upload investments
+      uploadUnsyncedInvestments()
     ])
       .catch(err => console.error("Background sync failed:", err))
       .finally(() => {
@@ -38,6 +37,27 @@ const queueUnsyncedUpload = () => {
       });
   }, 2000);
 };
+
+// --- NEW: Secure API communication function ---
+async function callSheetsApi(method: 'GET' | 'POST', params: any): Promise<any> {
+  if (!BACKEND_URL) {
+    throw new Error("Backend URL is not configured in .env file. Please set EXPO_PUBLIC_BACKEND_URL");
+  }
+  
+  const url = `${BACKEND_URL}/api/sheets${params.queryString || ''}`;
+  
+  const response = await fetch(url, {
+    method: method,
+    headers: { 'Content-Type': 'application/json' },
+    ...(method === 'POST' && { body: JSON.stringify(params) }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(errorData.error || `API call failed with status ${response.status}`);
+  }
+  return response.json();
+}
 
 export interface Transaction {
   id?: number;
@@ -56,7 +76,6 @@ export interface Budget {
   amount: number;
 }
 
-// NEW: Investment Interface
 export interface Investment {
   uuid: string;
   name: string;
@@ -97,7 +116,7 @@ export const init = () => {
     );`
   );
 
-  // NEW: Create investments table
+  // Create investments table
   db.execSync(
     `CREATE TABLE IF NOT EXISTS investments (
       uuid TEXT PRIMARY KEY NOT NULL,
@@ -119,7 +138,6 @@ export const init = () => {
   db.execSync(`CREATE INDEX IF NOT EXISTS idx_transactions_synced ON transactions(isSynced);`);
   db.execSync(`CREATE INDEX IF NOT EXISTS idx_transactions_deleted ON transactions(isDeleted);`);
   
-  // NEW: Create indices for investments
   db.execSync(`CREATE INDEX IF NOT EXISTS idx_investments_uuid ON investments(uuid);`);
   db.execSync(`CREATE INDEX IF NOT EXISTS idx_investments_synced ON investments(isSynced);`);
   db.execSync(`CREATE INDEX IF NOT EXISTS idx_investments_deleted ON investments(isDeleted);`);
@@ -165,7 +183,7 @@ export const init = () => {
   console.log("Database initialized successfully");
 };
 
-// --- TRANSACTION FUNCTIONS ---
+// --- TRANSACTION FUNCTIONS (unchanged) ---
 export const addTransaction = async (
   txData: Omit<Transaction, "isSynced" | "id" | "uuid">
 ): Promise<void> => {
@@ -252,6 +270,7 @@ export const getBudgetForMonth = async (monthYear: string): Promise<Budget | nul
   }
 };
 
+// --- MODIFIED: Budget function now uses secure backend ---
 export const setBudgetForMonth = async (budget: Budget): Promise<void> => {
   try {
     await db.runAsync(
@@ -259,12 +278,11 @@ export const setBudgetForMonth = async (budget: Budget): Promise<void> => {
       [budget.monthYear, budget.amount]
     );
     
-    // Background sync budget
-    axios.post(API_URL, {
-      apiKey: API_KEY,
+    // Background sync budget via secure backend
+    callSheetsApi('POST', {
       action: "setBudget",
       data: { MonthYear: budget.monthYear, BudgetAmount: budget.amount },
-    }, { timeout: 10000 })
+    })
     .then(() => console.log(`Budget for ${budget.monthYear} synced successfully`))
     .catch((error) => console.error("Background budget sync failed:", error));
     
@@ -274,7 +292,7 @@ export const setBudgetForMonth = async (budget: Budget): Promise<void> => {
   }
 };
 
-// --- NEW: INVESTMENT FUNCTIONS ---
+// --- INVESTMENT FUNCTIONS (unchanged) ---
 export const addInvestment = async (invData: Omit<Investment, "isSynced" | "uuid">): Promise<void> => {
   const newUuid = uuidv4();
   const normalizedPurchaseDate = parseAndNormalizeToIST(invData.purchaseDate);
@@ -333,7 +351,7 @@ export const getAllInvestments = async (): Promise<Investment[]> => {
   }
 };
 
-// --- SYNC FUNCTIONS ---
+// --- MODIFIED: Upload functions now use secure backend ---
 export const uploadUnsyncedTransactions = async (): Promise<void> => {
   try {
     const unsyncedTxs = await db.getAllAsync<Transaction>(
@@ -366,25 +384,10 @@ export const uploadUnsyncedTransactions = async (): Promise<void> => {
             type: tx.type,
           };
         }
-        
-        const payload = { 
-          apiKey: API_KEY, 
-          action, 
-          data: payloadData 
-        };
 
         console.log(`Syncing ${action} for UUID: ${tx.uuid}`);
         
-        const response = await axios.post(API_URL, payload, {
-          timeout: 10000,
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        });
-
-        if (response.status !== 200) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
+        await callSheetsApi('POST', { action, data: payloadData });
 
         // Handle successful sync
         if (tx.isDeleted) {
@@ -398,11 +401,10 @@ export const uploadUnsyncedTransactions = async (): Promise<void> => {
       } catch (error) {
         console.error(`Failed to sync transaction ${tx.uuid}:`, error);
         
-        if (axios.isAxiosError(error)) {
-          if (error.code === 'NETWORK_ERROR' || error.code === 'ECONNABORTED') {
-            console.log("Network error - will retry later");
-            break; // Stop trying other transactions if network is down
-          }
+        // Check for network errors
+        if (error instanceof Error && (error.message.includes('network') || error.message.includes('timeout'))) {
+          console.log("Network error - will retry later");
+          break; // Stop trying other transactions if network is down
         }
         // Continue with other transactions for non-network errors
       }
@@ -413,7 +415,7 @@ export const uploadUnsyncedTransactions = async (): Promise<void> => {
   }
 };
 
-// NEW: Upload unsynced investments
+// --- MODIFIED: Investment upload now uses secure backend ---
 export const uploadUnsyncedInvestments = async (): Promise<void> => {
   try {
     const unsyncedInvs = await db.getAllAsync<Investment>(
@@ -437,12 +439,8 @@ export const uploadUnsyncedInvestments = async (): Promise<void> => {
           payloadData = { uuid: inv.uuid };
         } else {
           // Check if investment already exists in Google Sheets
-          const existingCheck = await axios.get(
-            `${API_URL}?apiKey=${API_KEY}&action=getInvestments`,
-            { timeout: 10000 }
-          );
-          
-          const existingInvestments = existingCheck.data?.data || [];
+          const existingCheck = await callSheetsApi('GET', { queryString: '?action=getInvestments' });
+          const existingInvestments = existingCheck?.data || [];
           const existsInSheets = existingInvestments.some((existing: any) => existing.uuid === inv.uuid);
           
           action = existsInSheets ? "updateInvestment" : "addInvestment";
@@ -458,25 +456,10 @@ export const uploadUnsyncedInvestments = async (): Promise<void> => {
             soldPrice: inv.soldPrice || null
           };
         }
-        
-        const payload = { 
-          apiKey: API_KEY, 
-          action, 
-          data: payloadData 
-        };
 
         console.log(`Syncing ${action} for investment UUID: ${inv.uuid}`);
         
-        const response = await axios.post(API_URL, payload, {
-          timeout: 10000,
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        });
-
-        if (response.status !== 200) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
+        await callSheetsApi('POST', { action, data: payloadData });
 
         // Handle successful sync
         if (inv.isDeleted) {
@@ -490,11 +473,10 @@ export const uploadUnsyncedInvestments = async (): Promise<void> => {
       } catch (error) {
         console.error(`Failed to sync investment ${inv.uuid}:`, error);
         
-        if (axios.isAxiosError(error)) {
-          if (error.code === 'NETWORK_ERROR' || error.code === 'ECONNABORTED') {
-            console.log("Network error - will retry later");
-            break; // Stop trying other investments if network is down
-          }
+        // Check for network errors
+        if (error instanceof Error && (error.message.includes('network') || error.message.includes('timeout'))) {
+          console.log("Network error - will retry later");
+          break; // Stop trying other investments if network is down
         }
         // Continue with other investments for non-network errors
       }
@@ -505,13 +487,14 @@ export const uploadUnsyncedInvestments = async (): Promise<void> => {
   }
 };
 
+// --- MODIFIED: Sync function now uses secure backend ---
 export const syncData = async (isFullSync: boolean): Promise<void> => {
   console.log(`Starting sync process (full: ${isFullSync})...`);
   
   try {
     // Always upload pending changes first
     await uploadUnsyncedTransactions();
-    await uploadUnsyncedInvestments(); // NEW: Upload investments
+    await uploadUnsyncedInvestments();
 
     if (!isFullSync) {
       console.log("Upload-only sync completed");
@@ -520,20 +503,17 @@ export const syncData = async (isFullSync: boolean): Promise<void> => {
 
     console.log("Performing full data download from Google Sheets...");
     
-    // Download transactions
-    const txResponse = await axios.get(
-      `${API_URL}?apiKey=${API_KEY}&action=getTransactions`,
-      { timeout: 15000 }
-    );
+    // Download all data securely via backend
+    const [txResponse, budgetResponse, invResponse] = await Promise.all([
+      callSheetsApi('GET', { queryString: '?action=getTransactions' }),
+      callSheetsApi('GET', { queryString: '?action=getBudgets' }),
+      callSheetsApi('GET', { queryString: '?action=getInvestments' }),
+    ]);
 
-    if (txResponse.status !== 200) {
-      throw new Error(`Failed to fetch transactions: HTTP ${txResponse.status}`);
-    }
-
-    const sheetTransactions = txResponse.data?.data || [];
+    // Process transactions
+    const sheetTransactions = txResponse?.data || [];
     console.log(`Downloaded ${sheetTransactions.length} transactions from sheets`);
 
-    // Process transactions in a database transaction for consistency
     await db.withTransactionAsync(async () => {
       for (const sheetTx of sheetTransactions) {
         if (!sheetTx.uuid) continue;
@@ -572,18 +552,8 @@ export const syncData = async (isFullSync: boolean): Promise<void> => {
       }
     });
 
-    // Download budgets
-    console.log("Downloading budgets from Google Sheets...");
-    const budgetResponse = await axios.get(
-      `${API_URL}?apiKey=${API_KEY}&action=getBudgets`,
-      { timeout: 15000 }
-    );
-
-    if (budgetResponse.status !== 200) {
-      throw new Error(`Failed to fetch budgets: HTTP ${budgetResponse.status}`);
-    }
-
-    const sheetBudgets = budgetResponse.data?.data || [];
+    // Process budgets
+    const sheetBudgets = budgetResponse?.data || [];
     console.log(`Downloaded ${sheetBudgets.length} budgets from sheets`);
 
     await db.withTransactionAsync(async () => {
@@ -600,18 +570,8 @@ export const syncData = async (isFullSync: boolean): Promise<void> => {
       }
     });
 
-    // NEW: Download investments
-    console.log("Downloading investments from Google Sheets...");
-    const invResponse = await axios.get(
-      `${API_URL}?apiKey=${API_KEY}&action=getInvestments`,
-      { timeout: 15000 }
-    );
-
-    if (invResponse.status !== 200) {
-      throw new Error(`Failed to fetch investments: HTTP ${invResponse.status}`);
-    }
-
-    const sheetInvestments = invResponse.data?.data || [];
+    // Process investments
+    const sheetInvestments = invResponse?.data || [];
     console.log(`Downloaded ${sheetInvestments.length} investments from sheets`);
 
     await db.withTransactionAsync(async () => {
@@ -661,13 +621,13 @@ export const syncData = async (isFullSync: boolean): Promise<void> => {
   } catch (error) {
     console.error("Sync process failed:", error);
     
-    if (axios.isAxiosError(error)) {
-      if (error.code === 'NETWORK_ERROR') {
+    if (error instanceof Error) {
+      if (error.message.includes('network') || error.message.includes('Network')) {
         throw new Error("Network error - please check your internet connection");
-      } else if (error.code === 'ECONNABORTED') {
+      } else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
         throw new Error("Sync timeout - please try again");
-      } else if (error.response) {
-        throw new Error(`Server error: ${error.response.status} ${error.response.statusText}`);
+      } else if (error.message.includes('Backend URL is not configured')) {
+        throw new Error("Backend configuration error - please contact support");
       }
     }
     
@@ -684,7 +644,6 @@ const getUnsyncedTransactions = async (): Promise<Transaction[]> => {
   }
 };
 
-// NEW: Get unsynced investments
 const getUnsyncedInvestments = async (): Promise<Investment[]> => {
   try {
     return await db.getAllAsync<Investment>(`SELECT * FROM investments WHERE isSynced = 0;`);
@@ -701,13 +660,13 @@ export const getSyncStatus = async (): Promise<{
 }> => {
   try {
     const unsyncedTxs = await getUnsyncedTransactions();
-    const unsyncedInvs = await getUnsyncedInvestments(); // NEW
+    const unsyncedInvs = await getUnsyncedInvestments();
     const lastSyncString = await AsyncStorage.getItem('lastFullSyncTimestamp');
     const lastSyncDate = lastSyncString ? new Date(parseInt(lastSyncString, 10)) : null;
 
     return {
       unsyncedTransactionsCount: unsyncedTxs.length,
-      unsyncedInvestmentsCount: unsyncedInvs.length, // NEW
+      unsyncedInvestmentsCount: unsyncedInvs.length,
       lastSync: lastSyncDate ? lastSyncDate.toLocaleString('en-IN') : 'Never',
     };
   } catch (error) {
@@ -719,4 +678,3 @@ export const getSyncStatus = async (): Promise<{
     };
   }
 };
-

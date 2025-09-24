@@ -1,7 +1,12 @@
 // In utils/geminiApi.ts
-import axios from "axios";
 import { Investment, Transaction } from "../database";
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+// --- REMOVED: Direct API access ---
+// import axios from "axios";
+// const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+// --- NEW: Backend URL configuration ---
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 // Enhanced structure for more comprehensive reports including investments
 export interface StructuredReport {
@@ -36,14 +41,12 @@ export interface StructuredReport {
   investmentTips?: string[];
 }
 
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-
 export const generateReportWithGemini = async (
   transactions: Transaction[],
   investments: Investment[] = []
 ): Promise<StructuredReport> => {
-  if (!GEMINI_API_KEY) {
-    throw new Error("Gemini API key is missing. Please add it to your config.js file.");
+  if (!BACKEND_URL) {
+    throw new Error("Backend URL is not defined. Please add EXPO_PUBLIC_BACKEND_URL to your .env file.");
   }
 
   // Calculate basic transaction metrics
@@ -205,21 +208,25 @@ export const generateReportWithGemini = async (
   `;
 
   try {
-    const response = await axios.post(API_URL, {
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.3,
-        topK: 40,
-        topP: 0.95,
-      }
+    // --- MODIFIED: Call secure backend instead of direct Gemini API ---
+    const response = await fetch(`${BACKEND_URL}/api/gemini`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
     });
 
-    if (!response.data.candidates || response.data.candidates.length === 0) {
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown server error' }));
+      throw new Error(errorData.error || `Server returned status ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.candidates || data.candidates.length === 0) {
       throw new Error("The response from the AI was blocked or empty.");
     }
 
-    const reportJsonString = response.data.candidates[0].content.parts[0].text;
+    const reportJsonString = data.candidates[0].content.parts[0].text;
     let reportObject: StructuredReport;
     
     try {
@@ -305,60 +312,55 @@ export const generateReportWithGemini = async (
     return reportObject;
 
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("Gemini API Error:", error.response?.data || error.message);
-      
-      // Enhanced fallback report including investments
-      return {
-        title: "Financial Summary Report",
-        summary: `Based on your data: ₹${income.toFixed(2)} income, ₹${expenses.toFixed(2)} expenses (${income >= expenses ? 'savings' : 'deficit'} of ₹${Math.abs(income - expenses).toFixed(2)}), and ₹${totalInvestment.toFixed(2)} in investments ${totalInvestment > 0 ? `with ${profitLossPercentage.toFixed(1)}% returns` : ''}.`,
-        insights: [
-          `Your primary spending category is ${topCategory} with ₹${expensesByCategory[topCategory]?.toFixed(2) || 0} spent.`,
-          investments.length > 0 ? `Your investment portfolio has ${investments.length} holdings across ${Object.keys(investmentsByType).length} types.` : "Consider starting an investment portfolio for long-term growth.",
-          `You have ${transactions.length} recorded transactions in this period.`
-        ],
-        tips: [
-          "Review your largest spending category to identify potential savings.",
-          investments.length > 0 ? "Monitor your investment performance and consider rebalancing quarterly." : "Start investing with SIPs in diversified mutual funds.",
-          "Consider setting up a monthly budget to track expenses better."
-        ],
-        financialHealth: {
-          score: 50,
-          status: 'Fair',
-          primaryConcerns: ['Unable to generate detailed analysis - please try again']
+    console.error("Gemini API Error via backend:", error);
+    
+    // Enhanced fallback report including investments
+    return {
+      title: "Financial Summary Report",
+      summary: `Based on your data: ₹${income.toFixed(2)} income, ₹${expenses.toFixed(2)} expenses (${income >= expenses ? 'savings' : 'deficit'} of ₹${Math.abs(income - expenses).toFixed(2)}), and ₹${totalInvestment.toFixed(2)} in investments ${totalInvestment > 0 ? `with ${profitLossPercentage.toFixed(1)}% returns` : ''}.`,
+      insights: [
+        `Your primary spending category is ${topCategory} with ₹${expensesByCategory[topCategory]?.toFixed(2) || 0} spent.`,
+        investments.length > 0 ? `Your investment portfolio has ${investments.length} holdings across ${Object.keys(investmentsByType).length} types.` : "Consider starting an investment portfolio for long-term growth.",
+        `You have ${transactions.length} recorded transactions in this period.`
+      ],
+      tips: [
+        "Review your largest spending category to identify potential savings.",
+        investments.length > 0 ? "Monitor your investment performance and consider rebalancing quarterly." : "Start investing with SIPs in diversified mutual funds.",
+        "Consider setting up a monthly budget to track expenses better."
+      ],
+      financialHealth: {
+        score: 50,
+        status: 'Fair',
+        primaryConcerns: ['Unable to generate detailed analysis - please try again']
+      },
+      keyMetrics: {
+        totalIncome: income,
+        totalExpenses: expenses,
+        netSavings: income - expenses,
+        savingsRate: income > 0 ? parseFloat(((income - expenses) / income * 100).toFixed(1)) : 0,
+        topSpendingCategory: topCategory
+      },
+      ...(investments.length > 0 && {
+        investmentMetrics: {
+          totalInvestment,
+          currentValue,
+          totalProfitLoss,
+          profitLossPercentage: parseFloat(profitLossPercentage.toFixed(2)),
+          activeInvestments: activeCount,
+          soldInvestments: soldCount,
+          bestPerformingType,
+          worstPerformingType,
+          portfolioDiversification: Math.min(100, portfolioDiversification)
         },
-        keyMetrics: {
-          totalIncome: income,
-          totalExpenses: expenses,
-          netSavings: income - expenses,
-          savingsRate: income > 0 ? parseFloat(((income - expenses) / income * 100).toFixed(1)) : 0,
-          topSpendingCategory: topCategory
-        },
-        ...(investments.length > 0 && {
-          investmentMetrics: {
-            totalInvestment,
-            currentValue,
-            totalProfitLoss,
-            profitLossPercentage: parseFloat(profitLossPercentage.toFixed(2)),
-            activeInvestments: activeCount,
-            soldInvestments: soldCount,
-            bestPerformingType,
-            worstPerformingType,
-            portfolioDiversification: Math.min(100, portfolioDiversification)
-          },
-          investmentInsights: [
-            `Portfolio shows ${profitLossPercentage.toFixed(1)}% overall return.`,
-            `${activeCount} active investments across ${Object.keys(investmentsByType).length} types.`
-          ],
-          investmentTips: [
-            "Review portfolio performance and consider diversification.",
-            "Monitor market trends and rebalance as needed."
-          ]
-        })
-      };
-    } else {
-      console.error("An unexpected error occurred:", error);
-      throw new Error("Failed to analyze your financial data. Please try again later.");
-    }
+        investmentInsights: [
+          `Portfolio shows ${profitLossPercentage.toFixed(1)}% overall return.`,
+          `${activeCount} active investments across ${Object.keys(investmentsByType).length} types.`
+        ],
+        investmentTips: [
+          "Review portfolio performance and consider diversification.",
+          "Monitor market trends and rebalance as needed."
+        ]
+      })
+    };
   }
 };
