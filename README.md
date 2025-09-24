@@ -10,6 +10,7 @@ A comprehensive, privacy-first personal finance tracker powered by **React Nativ
 
 * [Features](#-features)
 * [Screenshots](#-screenshots)
+* [Architecture Overview](#-architecture-overview)
 * [Tech Stack](#-tech-stack)
 * [Installation](#-installation)
 * [Google Apps Script Setup](#-google-apps-script-setup)
@@ -44,18 +45,55 @@ Here's a sneak peek of **Nidhi** in action. The app supports a clean, consistent
 
 ### Light Mode
 
-<img src="./assets/images/screenshots/home-light.jpg" alt="Home Light" width="400"/>
-<img src="./assets/images/screenshots/history-light.jpg" alt="History Light" width="400"/>
-<img src="./assets/images/screenshots/reports-light.jpg" alt="Reports Light" width="400"/>
-<img src="./assets/images/screenshots/add-expense-light.jpg" alt="Add Expense Light" width="400"/>
-<img src="./assets/images/screenshots/settings-light.jpg" alt="Settings Light" width="400"/>
+<p align="center">
+  <img src="./assets/images/screenshots/home-light.jpg" alt="Home Light" width="250"/>
+  <img src="./assets/images/screenshots/history-light.jpg" alt="History Light" width="250"/>
+  <img src="./assets/images/screenshots/reports-light.jpg" alt="Reports Light" width="250"/>
+</p>
+
+<p align="center">
+  <img src="./assets/images/screenshots/add-expense-light.jpg" alt="Add Expense Light" width="250"/>
+  <img src="./assets/images/screenshots/settings-light.jpg" alt="Settings Light" width="250"/>
+</p>
 
 ### Dark Mode
 
-<img src="./assets/images/screenshots/home-dark.jpg" alt="Home Dark" width="400"/>
-<img src="./assets/images/screenshots/history-dark.jpg" alt="History Dark" width="400"/>
-<img src="./assets/images/screenshots/reports-dark.jpg" alt="Reports Dark" width="400"/>
-<img src="./assets/images/screenshots/add-income-dark.jpg" alt="Add Income Dark" width="400"/>
+<p align="center">
+  <img src="./assets/images/screenshots/home-dark.jpg" alt="Home Dark" width="250"/>
+  <img src="./assets/images/screenshots/history-dark.jpg" alt="History Dark" width="250"/>
+  <img src="./assets/images/screenshots/reports-dark.jpg" alt="Reports Dark" width="250"/>
+</p>
+
+<p align="center">
+  <img src="./assets/images/screenshots/add-income-dark.jpg" alt="Add Income Dark" width="250"/>
+</p>
+
+---
+
+## 🏗️ Architecture Overview
+
+Nidhi is designed with **offline-first architecture** to ensure reliability and privacy:
+
+```
+User Interface (React Native Screens)
+          ⬇
+   AppContext (Global State Management)
+          ⬇
+   Local Database (Expo SQLite)
+          ⬇             ⬇
+ Background Sync Service      ↔      Google Sheets API (Apps Script Backend)
+```
+
+* **SQLite (Local Storage):** Stores all transactions and budgets offline.
+* **AppContext:** Acts as a bridge between the UI and the local database, ensuring instant updates.
+* **Background Sync:** Periodically pushes pending changes from SQLite to Google Sheets when online.
+* **Google Sheets API:** Serves as the cloud backend for backup, analytics, and cross-device access.
+
+This layered approach ensures:
+
+* ✅ **Offline-first experience** (app works even without internet)
+* ✅ **Seamless cloud sync** (data is never lost)
+* ✅ **Privacy-first design** (your sheet, your data)
 
 ---
 
