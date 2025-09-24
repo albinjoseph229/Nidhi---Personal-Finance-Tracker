@@ -1,21 +1,24 @@
-<p align="center">
-  <img src="assets/images/nidhi.png" alt="Nidhi App Logo" width="200"/>
-</p>
+# Nidhi - Personal Finance Tracker
 
-<h1 align="center">Nidhi - Personal Finance Tracker</h1>
+<img src="./assets/images/nidhi.png" alt="Nidhi Logo" width="150"/>
 
-<p align="center">
-  A comprehensive, cross-platform personal finance tracker built with <b>React Native</b> and <b>Expo</b>.
-</p>
+A comprehensive, privacy-first personal finance tracker powered by **React Native**, **Expo**, and **Google Sheets**. Nidhi combines **local offline storage** with **cloud syncing** to ensure your data is always safe and accessible.
 
-<p align="center">
-  <a href="https://opensource.org/licenses/MIT">
-    <img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg"/>
-  </a>
-  <a href="https://github.com/your-github-username/nidhi/stargazers">
-    <img alt="GitHub stars" src="https://img.shields.io/github/stars/your-github-username/nidhi?style=social"/>
-  </a>
-</p>
+---
+
+## 📖 Table of Contents
+
+* [Features](#-features)
+* [Screenshots](#-screenshots)
+* [Tech Stack](#-tech-stack)
+* [Installation](#-installation)
+* [Google Apps Script Setup](#-google-apps-script-setup)
+* [Environment Variables](#-environment-variables)
+* [Running the App](#-running-the-app)
+* [Building for Production](#-building-for-production)
+* [API Endpoints](#-api-endpoints)
+* [Contributing](#-contributing)
+* [License](#-license)
 
 ---
 
@@ -28,7 +31,8 @@
 * 🤖 **AI-Powered Analysis** – Get personalized financial wellness reports using the Google Gemini API.
 * 📑 **PDF & CSV Export** – Export full transaction history as PDF or CSV.
 * ☁️ **Cloud Sync** – Securely sync data to your private Google Sheet.
-* 📴 **Offline Support** – Works offline and syncs when reconnected.
+* 📴 **Offline Mode with Local Database** – Transactions are first stored in a **local SQLite database**. They are automatically synced to Google Sheets when internet is available.
+* 🔄 **Background Syncing** – Changes are queued locally and synced periodically.
 * 🌙 **Light & Dark Mode** – Consistent, theme-aware design.
 * 🔐 **Secure Authentication** – Sign in securely with Google.
 
@@ -36,61 +40,22 @@
 
 ## 📸 Screenshots
 
-Here’s a detailed look at **Nidhi** in action. The app supports a clean, consistent design in both light and dark modes.
+Here's a sneak peek of **Nidhi** in action. The app supports a clean, consistent design in both light and dark modes.
 
-### Home Screen
+### Light Mode
 
-#### Light Mode
+<img src="./assets/images/screenshots/home-light.jpg" alt="Home Light" width="400"/>
+<img src="./assets/images/screenshots/history-light.jpg" alt="History Light" width="400"/>
+<img src="./assets/images/screenshots/reports-light.jpg" alt="Reports Light" width="400"/>
+<img src="./assets/images/screenshots/add-expense-light.jpg" alt="Add Expense Light" width="400"/>
+<img src="./assets/images/screenshots/settings-light.jpg" alt="Settings Light" width="400"/>
 
-<img src="assets/images/screenshots/home-light.jpg" alt="Home Light" width="250"/>
+### Dark Mode
 
-#### Dark Mode
-
-<img src="assets/images/screenshots/home-dark.jpg" alt="Home Dark" width="250"/>
-
----
-
-### Reports Screen
-
-#### Light Mode
-
-<img src="assets/images/screenshots/reports-light.jpg" alt="Reports Light" width="250"/>
-
-#### Dark Mode
-
-<img src="assets/images/screenshots/reports-dark.jpg" alt="Reports Dark" width="250"/>
-
----
-
-### History Screen
-
-#### Light Mode
-
-<img src="assets/images/screenshots/history-light.jpg" alt="History Light" width="250"/>
-
-#### Dark Mode
-
-<img src="assets/images/screenshots/history-dark.jpg" alt="History Dark" width="250"/>
-
----
-
-### Add Income / Expense
-
-#### Add Income (Dark Mode)
-
-<img src="assets/images/screenshots/add-income-dark.jpg" alt="Add Income Dark" width="250"/>
-
-#### Add Expense (Light Mode)
-
-<img src="assets/images/screenshots/add-expense-light.jpg" alt="Add Expense Light" width="250"/>
-
----
-
-### Settings Screen
-
-#### Light Mode
-
-<img src="assets/images/screenshots/settings-light.jpg" alt="Settings Light" width="250"/>
+<img src="./assets/images/screenshots/home-dark.jpg" alt="Home Dark" width="400"/>
+<img src="./assets/images/screenshots/history-dark.jpg" alt="History Dark" width="400"/>
+<img src="./assets/images/screenshots/reports-dark.jpg" alt="Reports Dark" width="400"/>
+<img src="./assets/images/screenshots/add-income-dark.jpg" alt="Add Income Dark" width="400"/>
 
 ---
 
@@ -98,78 +63,64 @@ Here’s a detailed look at **Nidhi** in action. The app supports a clean, consi
 
 * **Framework:** React Native (Expo)
 * **Navigation:** Expo Router (File-based)
-* **Database:** Expo SQLite
-* **Backend:** Google Sheets + Google Apps Script
+* **Local Storage:** Expo SQLite (with migrations, indexing, and UUID support)
+* **Cloud Backend:** Google Sheets + Google Apps Script
 * **AI Integration:** Google Gemini API
 * **Deployment:** EAS (Expo Application Services)
 
 ---
 
-## 🛠️ Project Setup Guide
+## ⚙️ Installation
 
-### 1. Prerequisites
+1. Clone this repository:
 
-* Node.js (LTS)
-* Git
-* Expo account
-* Expo Go app (iOS/Android)
+   ```bash
+   git clone https://github.com/yourusername/nidhi.git
+   cd nidhi
+   ```
+2. Install dependencies:
 
-### 2. Local Installation
+   ```bash
+   npm install
+   ```
+3. Install EAS CLI:
 
-```bash
-# Clone the repository
-git clone https://github.com/your-github-username/nidhi.git
-cd nidhi
+   ```bash
+   npm install -g eas-cli
+   ```
+4. Log in to Expo:
 
-# Install dependencies
-npm install
+   ```bash
+   eas login
+   ```
 
-# Install the EAS CLI
-npm install -g eas-cli
+---
 
-# Log in to Expo
-eas login
-```
+## 🛠 Google Apps Script Setup
 
-### 3. Google Sheets & Apps Script Setup
+The `Code.gs` file is located in the **root directory** of this project. Copy its contents into your Google Apps Script project to enable backend functionality.
 
-#### Step 3.1: Create the Google Sheet
+1. Create a new Google Sheet and name it **Nidhi Finance Tracker**.
+2. Add two tabs:
 
-1. Go to Google Sheets and create a new spreadsheet.
-2. Rename it: **Nidhi Finance Tracker**.
-3. Create two tabs: **Transactions** and **Budgets**.
-4. Add headers:
+   * **Transactions** → Headers: `Date | Category | Amount | Notes | Type | uuid`
+   * **Budgets** → Headers: `MonthYear | BudgetAmount`
+3. In Google Sheets → **Extensions > Apps Script**, paste the contents of [`Code.gs`](./Code.gs).
+4. Replace the placeholders:
 
-**Transactions Sheet**
-\| Date | Category | Amount | Notes | Type | uuid |
+   * `YOUR_GOOGLE_SHEET_ID_HERE`
+   * `YOUR_SECRET_KEY`
+5. Deploy as a **Web App**:
 
-**Budgets Sheet**
-\| MonthYear | BudgetAmount |
-
-5. Copy the **Sheet ID** from the URL.
-
-#### Step 3.2: Deploy Google Apps Script
-
-1. In Google Sheet → Extensions → Apps Script.
-2. Open the `Code.gs` file located inside the **root directory** of this project.
-3. Copy its contents and paste them into the Apps Script editor.
-4. Replace `YOUR_GOOGLE_SHEET_ID_HERE` with your Sheet ID.
-5. Deploy as Web App:
-
-   * Description: **Nidhi API v1**
    * Execute as: **Me**
    * Who has access: **Anyone**
-6. Copy the **Web App URL**.
+6. Copy the deployment URL – this will be used as `EXPO_PUBLIC_GOOGLE_SHEETS_API_URL`.
 
-### 4. Gemini API Key Setup
+---
 
-1. Go to **Google AI Studio**.
-2. Generate an API Key.
-3. Copy the key.
+## 🔑 Environment Variables
 
-### 5. Environment Variables
-
-Create a `.env` file in project root:
+Create a `.env` file in the project root:
 
 ```bash
 EXPO_PUBLIC_GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
@@ -177,55 +128,73 @@ EXPO_PUBLIC_GOOGLE_SHEETS_API_URL="YOUR_WEB_APP_URL"
 EXPO_PUBLIC_GOOGLE_SHEETS_API_KEY="YOUR_SECRET_KEY_FROM_CODE.GS"
 ```
 
-Add `.env` to `.gitignore`.
+Add `.env` to `.gitignore` to keep your keys safe.
 
-### 6. Running the App
+---
+
+## ▶️ Running the App
 
 ```bash
 npx expo start
 ```
 
-Scan the QR code with **Expo Go**.
+Scan the QR code with **Expo Go** to launch the app.
 
 ---
 
 ## 📦 Building for Production (APK)
 
-### 1. Push Secrets to EAS
+1. Push secrets to EAS:
 
-```bash
-eas secret:push --scope project --env-file ./.env
-```
+   ```bash
+   eas secret:push --scope project --env-file ./.env
+   ```
+2. Configure `eas.json`:
 
-(or use `eas env:push` if prompted)
+   ```json
+   {
+     "build": {
+       "preview": {
+         "distribution": "internal",
+         "android": {
+           "buildType": "apk"
+         },
+         "env": {
+           "EXPO_PUBLIC_GEMINI_API_KEY": "${secrets.EXPO_PUBLIC_GEMINI_API_KEY}",
+           "EXPO_PUBLIC_GOOGLE_SHEETS_API_URL": "${secrets.EXPO_PUBLIC_GOOGLE_SHEETS_API_URL}",
+           "EXPO_PUBLIC_GOOGLE_SHEETS_API_KEY": "${secrets.EXPO_PUBLIC_GOOGLE_SHEETS_API_KEY}"
+         }
+       }
+     }
+   }
+   ```
+3. Start build:
 
-### 2. Configure eas.json
-
-```json
-{
-  "build": {
-    "preview": {
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      },
-      "env": {
-        "EXPO_PUBLIC_GEMINI_API_KEY": "${secrets.EXPO_PUBLIC_GEMINI_API_KEY}",
-        "EXPO_PUBLIC_GOOGLE_SHEETS_API_URL": "${secrets.EXPO_PUBLIC_GOOGLE_SHEETS_API_URL}",
-        "EXPO_PUBLIC_GOOGLE_SHEETS_API_KEY": "${secrets.EXPO_PUBLIC_GOOGLE_SHEETS_API_KEY}"
-      }
-    }
-  }
-}
-```
-
-### 3. Start Build
-
-```bash
-eas build --platform android --profile preview
-```
+   ```bash
+   eas build --platform android --profile preview
+   ```
 
 Download the APK from the **EAS build page**.
+
+---
+
+## 🌐 API Endpoints
+
+All requests require the `apiKey` matching your secret key from `Code.gs`.
+
+### Transactions
+
+* `addTransaction`
+* `updateTransaction`
+* `deleteTransaction`
+* `getTransactions`
+
+### Budgets
+
+* `setBudget`
+* `getBudgets`
+
+(See [Code.gs](./Code.gs) for implementation details.)
 
 ---
 
