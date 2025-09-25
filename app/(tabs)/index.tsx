@@ -34,23 +34,37 @@ export default function HomeScreen() {
   const secondaryTextColor = useThemeColor({}, "tabIconDefault");
   const separatorColor = useThemeColor({}, "background");
 
+  // --- ✅ START: UPDATED CALCULATION LOGIC ---
   const {
-    savings,
+    totalSavings,
+    totalIncome,
     totalExpenses,
     recentTransactions,
     dynamicWeeklyData,
     totalInvestmentValue,
     netWorth,
   } = useMemo(() => {
-    const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
+    // --- New: Calculate totals across ALL transactions ---
+    const allTimeIncome = transactions
+      .filter((tx) => tx.type === "income")
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    const allTimeExpenses = transactions
+      .filter((tx) => tx.type === "expense")
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    const cumulativeSavings = allTimeIncome - allTimeExpenses;
+
+    const investmentValue = investments
+      .filter((inv) => inv.status === "active")
+      .reduce((sum, inv) => sum + inv.currentValue * inv.quantity, 0);
+
+    // --- New: Correct Net Worth calculation ---
+    const correctNetWorth = cumulativeSavings + investmentValue;
 
     const parseTransactionDate = (dateStr: string): Date => {
       let date: Date;
       if (dateStr.includes("T")) {
-        date = new Date(dateStr);
-      } else if (dateStr.includes("/")) {
         date = new Date(dateStr);
       } else if (dateStr.includes("-")) {
         date = new Date(dateStr + "T00:00:00.000Z");
@@ -58,35 +72,12 @@ export default function HomeScreen() {
         date = new Date(dateStr);
       }
       if (isNaN(date.getTime())) {
-        console.warn(`Invalid date format: ${dateStr}, using current date`);
         date = new Date();
       }
       return date;
     };
-
-    const transactionsThisMonth = transactions.filter((tx) => {
-      try {
-        const txDate = parseTransactionDate(tx.date);
-        return (
-          txDate.getMonth() === currentMonth &&
-          txDate.getFullYear() === currentYear
-        );
-      } catch (error) {
-        console.error(`Error parsing transaction date: ${tx.date}`, error);
-        return false;
-      }
-    });
-
-    const income = transactionsThisMonth
-      .filter((tx) => tx.type === "income")
-      .reduce((sum, tx) => sum + tx.amount, 0);
-
-    const expenses = transactionsThisMonth
-      .filter((tx) => tx.type === "expense")
-      .reduce((sum, tx) => sum + tx.amount, 0);
-
-    const currentSavings = income - expenses;
-
+    
+    // --- Other calculations (Recent, Weekly) remain the same ---
     const recent = [...transactions]
       .sort(
         (a, b) =>
@@ -112,27 +103,15 @@ export default function HomeScreen() {
     sevenDaysAgo.setHours(0, 0, 0, 0);
 
     const weeklyTransactions = transactions.filter((tx) => {
-      try {
-        const txDate = parseTransactionDate(tx.date);
-        return tx.type === "expense" && txDate >= sevenDaysAgo;
-      } catch (error) {
-        console.error(
-          `Error parsing weekly transaction date: ${tx.date}`,
-          error
-        );
-        return false;
-      }
+      const txDate = parseTransactionDate(tx.date);
+      return tx.type === "expense" && txDate >= sevenDaysAgo;
     });
 
     const dailyTotals: { [key: string]: number } = {};
     weeklyTransactions.forEach((tx) => {
-      try {
-        const txDate = parseTransactionDate(tx.date);
-        const dateKey = txDate.toISOString().split("T")[0];
-        dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + tx.amount;
-      } catch (error) {
-        console.error(`Error processing weekly transaction: ${tx.date}`, error);
-      }
+      const txDate = parseTransactionDate(tx.date);
+      const dateKey = txDate.toISOString().split("T")[0];
+      dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + tx.amount;
     });
 
     weekData.forEach((dayData) => {
@@ -141,19 +120,18 @@ export default function HomeScreen() {
       }
     });
 
-    const investmentValue = investments
-      .filter((inv) => inv.status === "active")
-      .reduce((sum, inv) => sum + inv.currentValue * inv.quantity, 0);
-
+    // --- Return new and existing values ---
     return {
-      savings: currentSavings,
-      totalExpenses: expenses,
+      totalSavings: cumulativeSavings,
+      totalIncome: allTimeIncome,
+      totalExpenses: allTimeExpenses,
       recentTransactions: recent,
       dynamicWeeklyData: weekData,
       totalInvestmentValue: investmentValue,
-      netWorth: currentSavings + investmentValue,
+      netWorth: correctNetWorth,
     };
   }, [transactions, investments]);
+  // --- ✅ END: UPDATED CALCULATION LOGIC ---
 
   const onRefresh = async () => {
     await triggerUploadSync();
@@ -215,7 +193,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* --- MODIFIED: Summary Card with Right-Aligned Amounts --- */}
+        {/* --- ✅ START: UPDATED SUMMARY CARD UI --- */}
         <ThemedView
           style={[
             styles.summaryCard,
@@ -235,30 +213,55 @@ export default function HomeScreen() {
             style={[styles.summaryDivider, { backgroundColor: separatorColor }]}
           />
 
-          {/* Savings Item */}
+          {/* Total Savings Item (Replaces monthly savings) */}
           <View style={styles.summaryListItem}>
             <View style={styles.summaryItemLeft}>
               <View style={styles.summaryIconContainer}>
-                <Feather name="dollar-sign" size={20} color="#34C759" />
+                <Feather name="shield" size={20} color="#34C759" />
               </View>
               <View>
-                <ThemedText style={styles.summaryItemTitle}>Savings</ThemedText>
+                <ThemedText style={styles.summaryItemTitle}>Total Savings</ThemedText>
                 <ThemedText
                   style={[
                     styles.summaryItemSubtitle,
                     { color: secondaryTextColor },
                   ]}
                 >
-                  (This Month)
+                  (Cash Balance)
                 </ThemedText>
               </View>
             </View>
             <ThemedText style={[styles.summaryAmount, { color: "#34C759" }]}>
-              {formatAmount(savings)}
+              {formatAmount(totalSavings)}
             </ThemedText>
           </View>
 
-          {/* Expenses Item */}
+          {/* NEW: Total Income Item */}
+          <View style={styles.summaryListItem}>
+            <View style={styles.summaryItemLeft}>
+              <View style={styles.summaryIconContainer}>
+                <Feather name="arrow-up-circle" size={20} color={textColor} />
+              </View>
+              <View>
+                <ThemedText style={styles.summaryItemTitle}>
+                  Total Income
+                </ThemedText>
+                <ThemedText
+                  style={[
+                    styles.summaryItemSubtitle,
+                    { color: secondaryTextColor },
+                  ]}
+                >
+                  (All-Time)
+                </ThemedText>
+              </View>
+            </View>
+            <ThemedText style={styles.summaryAmount}>
+              {formatAmount(totalIncome)}
+            </ThemedText>
+          </View>
+          
+          {/* Total Expenses Item (Replaces monthly expenses) */}
           <View style={styles.summaryListItem}>
             <View style={styles.summaryItemLeft}>
               <View style={styles.summaryIconContainer}>
@@ -266,7 +269,7 @@ export default function HomeScreen() {
               </View>
               <View>
                 <ThemedText style={styles.summaryItemTitle}>
-                  Expenses
+                  Total Expenses
                 </ThemedText>
                 <ThemedText
                   style={[
@@ -274,7 +277,7 @@ export default function HomeScreen() {
                     { color: secondaryTextColor },
                   ]}
                 >
-                  (This Month)
+                  (All-Time)
                 </ThemedText>
               </View>
             </View>
@@ -283,7 +286,7 @@ export default function HomeScreen() {
             </ThemedText>
           </View>
 
-          {/* Investments Item */}
+          {/* Investments Item (No change) */}
           <View style={styles.summaryListItem}>
             <View style={styles.summaryItemLeft}>
               <View style={styles.summaryIconContainer}>
@@ -299,7 +302,7 @@ export default function HomeScreen() {
                     { color: secondaryTextColor },
                   ]}
                 >
-                  (Total Value)
+                  (Active Value)
                 </ThemedText>
               </View>
             </View>
@@ -308,6 +311,7 @@ export default function HomeScreen() {
             </ThemedText>
           </View>
         </ThemedView>
+        {/* --- ✅ END: UPDATED SUMMARY CARD UI --- */}
 
         {/* --- MODIFIED: Analytics Card header is now a static label --- */}
         <ThemedView
@@ -444,28 +448,12 @@ const styles = StyleSheet.create({
     elevation: 2,
     alignItems: "center",
   },
-  summaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingTop: 16,
-    marginTop: 16,
-    borderTopWidth: 1,
-    width: "100%",
-  },
-  summaryFullRow: {
-    alignItems: "center",
-    paddingTop: 16,
-    marginTop: 16,
-    borderTopWidth: 1,
-    width: "100%",
-  },
-  summaryItem: { alignItems: "center", flex: 1 },
   summaryLabel: {
     fontSize: 14,
-    marginBottom: 2, // Reduced margin
+    marginBottom: 2,
   },
   summaryAmount: {
-    fontSize: 18, // Slightly smaller to fit the list better
+    fontSize: 18,
     fontWeight: "600",
   },
   netWorthAmount: {
@@ -473,7 +461,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginTop: 4,
   },
-  // --- NEW STYLES for improved summary card ---
   summaryDivider: {
     height: 1,
     width: "100%",
@@ -484,8 +471,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     width: "100%",
-    paddingVertical: 12, // Adjusted padding
-    justifyContent: "space-between", // This is key to push amount to the right
+    paddingVertical: 12,
+    justifyContent: "space-between",
   },
   summaryItemLeft: {
     flexDirection: "row",
@@ -506,11 +493,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
-    backgroundColor: "rgba(128, 128, 128, 0.1)", // A subtle background for the icon
-  },
-  summaryTextContainer: {
-    flex: 1,
-    alignItems: "flex-start", // Align text to the left
+    backgroundColor: "rgba(128, 128, 128, 0.1)",
   },
   analyticsCard: {
     borderRadius: 20,
