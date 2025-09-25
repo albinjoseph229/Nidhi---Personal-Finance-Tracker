@@ -8,7 +8,6 @@ import { Platform } from 'react-native';
 const tintColorLight = '#0a7ea4';
 const tintColorDark = '#fff';
 
-
 export const Colors = {
   light: {
     text: '#1C1C1E', // Dark text for high contrast
@@ -26,7 +25,12 @@ export const Colors = {
     tabIconSelected: '#F5F5F5', // Light color for active tab
     tint: '#F5F5F5', // General tint color
   },
-};
+} as const;
+
+// Export types for TypeScript
+export type Theme = keyof typeof Colors;
+export type ThemeColors = typeof Colors;
+export type ColorScheme = typeof Colors[Theme];
 
 export const Fonts = Platform.select({
   ios: {

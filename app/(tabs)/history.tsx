@@ -29,7 +29,6 @@ export default function HistoryScreen() {
   const router = useRouter();
   const { transactions, isSyncing, triggerUploadSync } = useAppData();
   const [searchQuery, setSearchQuery] = useState('');
-  // --- CHANGE 1: State now tracks EXPANDED sections, starts empty (all collapsed) ---
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const { theme } = useTheme();
 
@@ -39,8 +38,6 @@ export default function HistoryScreen() {
   const secondaryTextColor = useThemeColor({}, 'tabIconDefault');
   const separatorColor = useThemeColor({}, 'background');
 
-  // --- CHANGE 2: First useMemo for expensive data processing ---
-  // This only re-runs when transactions or searchQuery change.
   const processedData = useMemo(() => {
     const filteredTransactions = transactions.filter(
       (tx) =>
@@ -79,17 +76,13 @@ export default function HistoryScreen() {
       totalIncome: grouped[monthYear].totalIncome,
       totalExpenses: grouped[monthYear].totalExpenses,
       savings: grouped[monthYear].totalIncome - grouped[monthYear].totalExpenses,
-      // Keep the full data here, we'll hide it in the next step
       originalData: grouped[monthYear].data,
     }));
   }, [transactions, searchQuery]);
 
-  // --- CHANGE 3: Second, lightweight useMemo for display ---
-  // This runs quickly when a section is toggled.
   const sections = useMemo(() => {
     return processedData.map((section) => ({
       ...section,
-      // Show data only if the section title is in the expanded set
       data: expandedSections.has(section.title) ? section.originalData : [],
     }));
   }, [processedData, expandedSections]);
@@ -98,7 +91,6 @@ export default function HistoryScreen() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedSections((prev) => {
       const newSet = new Set(prev);
-      // Inverted logic: add to expand, delete to collapse
       newSet.has(sectionTitle) ? newSet.delete(sectionTitle) : newSet.add(sectionTitle);
       return newSet;
     });
@@ -133,8 +125,6 @@ export default function HistoryScreen() {
   };
 
   const renderTransactionItem = ({ item, index, section }: { item: Transaction, index: number, section: any }) => {
-    // The data passed to the section now correctly reflects its collapsed/expanded state,
-    // so we need to check against the originalData length for the last item styling.
     const isLastItem = index === section.originalData.length - 1;
     return (
       <Pressable
@@ -145,9 +135,9 @@ export default function HistoryScreen() {
       >
         <View style={[styles.item, { backgroundColor: cardColor, borderBottomColor: separatorColor }, isLastItem && styles.lastItem]}>
           <ThemedView style={[styles.itemIcon, { backgroundColor: separatorColor }]}>
-            <Feather 
-              name={getCategoryIcon(item.category)} 
-              size={20} 
+            <Feather
+              name={getCategoryIcon(item.category)}
+              size={20}
               color={item.type === 'income' ? '#34C759' : textColor}
             />
           </ThemedView>
@@ -173,7 +163,7 @@ export default function HistoryScreen() {
       </Pressable>
     );
   };
-  
+
   return (
     <ThemedView style={styles.container}>
       <StatusBar style={theme === 'light' ? 'dark' : 'light'} />
@@ -188,41 +178,51 @@ export default function HistoryScreen() {
             <SearchBar placeholder="Search transactions..." value={searchQuery} onChangeText={setSearchQuery} />
           </View>
         }
-        renderSectionHeader={({ section }) => (
-          <TouchableOpacity 
-            style={[styles.sectionHeader, { backgroundColor: cardColor, borderBottomColor: separatorColor }]}
-            onPress={() => toggleSection(section.title)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.sectionHeaderLeft}>
-              <ThemedText style={styles.sectionTitle}>{section.title}</ThemedText>
-              <ThemedText style={[styles.sectionSubTitle, { color: secondaryTextColor }]}>
-                {section.originalData.length} transaction{section.originalData.length !== 1 ? 's' : ''}
-              </ThemedText>
-            </View>
-            <View style={styles.sectionHeaderRight}>
-                <View style={styles.summaryRow}>
-                    <ThemedText style={styles.summaryLabel}>Income:</ThemedText>
-                    <ThemedText style={[styles.summaryValue, { color: '#34C759' }]}>{formatAmount(section.totalIncome)}</ThemedText>
-                </View>
-                <View style={styles.summaryRow}>
-                    <ThemedText style={styles.summaryLabel}>Expenses:</ThemedText>
-                    <ThemedText style={[styles.summaryValue, { color: '#FF3B30' }]}>{formatAmount(section.totalExpenses)}</ThemedText>
-                </View>
-                <View style={styles.summaryRow}>
-                    <ThemedText style={[styles.summaryLabel, styles.summaryLabelBold]}>Savings:</ThemedText>
-                    <ThemedText style={[styles.summaryValue, styles.summaryValueBold]}>{formatAmount(section.savings)}</ThemedText>
-                </View>
-            </View>
-            {/* --- CHANGE 4: Update chevron icon based on EXPANDED state --- */}
-            <Feather 
-              name={expandedSections.has(section.title) ? 'chevron-up' : 'chevron-down'} 
-              size={20} 
-              color={secondaryTextColor}
-              style={styles.chevronIcon}
-            />
-          </TouchableOpacity>
-        )}
+        renderSectionHeader={({ section }) => {
+          // --- CHANGE 2: Conditionally apply the new style ---
+          // Check if the current section is NOT in the expanded set
+          const isCollapsed = !expandedSections.has(section.title);
+
+          return (
+            <TouchableOpacity
+              // Apply the base style, dynamic colors, and the 'collapsed' style if needed
+              style={[
+                styles.sectionHeader,
+                { backgroundColor: cardColor, borderBottomColor: separatorColor },
+                isCollapsed && styles.collapsedSectionHeader
+              ]}
+              onPress={() => toggleSection(section.title)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.sectionHeaderLeft}>
+                <ThemedText style={styles.sectionTitle}>{section.title}</ThemedText>
+                <ThemedText style={[styles.sectionSubTitle, { color: secondaryTextColor }]}>
+                  {section.originalData.length} transaction{section.originalData.length !== 1 ? 's' : ''}
+                </ThemedText>
+              </View>
+              <View style={styles.sectionHeaderRight}>
+                  <View style={styles.summaryRow}>
+                      <ThemedText style={styles.summaryLabel}>Income:</ThemedText>
+                      <ThemedText style={[styles.summaryValue, { color: '#34C759' }]}>{formatAmount(section.totalIncome)}</ThemedText>
+                  </View>
+                  <View style={styles.summaryRow}>
+                      <ThemedText style={styles.summaryLabel}>Expenses:</ThemedText>
+                      <ThemedText style={[styles.summaryValue, { color: '#FF3B30' }]}>{formatAmount(section.totalExpenses)}</ThemedText>
+                  </View>
+                  <View style={styles.summaryRow}>
+                      <ThemedText style={[styles.summaryLabel, styles.summaryLabelBold]}>Savings:</ThemedText>
+                      <ThemedText style={[styles.summaryValue, styles.summaryValueBold]}>{formatAmount(section.savings)}</ThemedText>
+                  </View>
+              </View>
+              <Feather
+                name={expandedSections.has(section.title) ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={secondaryTextColor}
+                style={styles.chevronIcon}
+              />
+            </TouchableOpacity>
+          );
+        }}
         renderItem={renderTransactionItem}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -251,6 +251,12 @@ const styles = StyleSheet.create({
   listContentContainer: { paddingHorizontal: 20, paddingBottom: 100 },
   searchContainer: { marginBottom: 20 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderBottomWidth: 1 },
+  // --- CHANGE 1: Add a new style for collapsed sections ---
+  collapsedSectionHeader: {
+    borderRadius: 16,     // Apply radius to all corners
+    marginBottom: 16,     // Add spacing between collapsed sections
+    borderBottomWidth: 0, // Remove the bottom border line
+  },
   sectionHeaderLeft: { flex: 1 },
   sectionHeaderRight: { marginRight: 16 },
   sectionTitle: { fontSize: 16, fontWeight: '600' },

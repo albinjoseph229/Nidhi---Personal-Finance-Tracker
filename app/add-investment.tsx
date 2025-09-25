@@ -43,12 +43,19 @@ const investmentCategories: Category[] = [
     { name: "Other", icon: "archive", color: "#96CEB4" },
 ];
 
+// Helper function for proper placeholder colors
+const getPlaceholderColor = (theme: 'light' | 'dark') => {
+    return theme === 'light' ? '#999999' : '#AAAAAA';
+};
+
 // --- A simple, self-contained modal for selling ---
 const SellInvestmentModal = ({ isVisible, onClose, onSell }: { isVisible: boolean, onClose: () => void, onSell: (price: string) => void }) => {
     const [price, setPrice] = useState('');
+    const { theme } = useTheme();
     const cardColor = useThemeColor({}, "card");
     const textColor = useThemeColor({}, "text");
     const separatorColor = useThemeColor({}, "tabIconDefault");
+    const placeholderColor = getPlaceholderColor(theme);
 
     const handleSell = () => {
         if (price && !isNaN(parseFloat(price))) {
@@ -68,7 +75,7 @@ const SellInvestmentModal = ({ isVisible, onClose, onSell }: { isVisible: boolea
                     <TextInput
                         style={[styles.textInput, { color: textColor, borderBottomColor: separatorColor, textAlign: 'center', fontSize: 24, marginVertical: 16 }]}
                         placeholder="0.00"
-                        placeholderTextColor={textColor + '50'}
+                        placeholderTextColor={placeholderColor}
                         keyboardType="decimal-pad"
                         value={price}
                         onChangeText={setPrice}
@@ -128,6 +135,7 @@ export default function AddInvestmentScreen() {
     const backgroundColor = useThemeColor({}, "background");
     const saveButtonActiveColor = theme === "light" ? "#1C1C1E" : cardColor;
     const saveButtonTextColor = theme === "light" ? "#FFFFFF" : textColor;
+    const placeholderColor = getPlaceholderColor(theme);
 
     const showDatePicker = () => {
         DateTimePickerAndroid.open({
@@ -270,7 +278,14 @@ export default function AddInvestmentScreen() {
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                     <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
                         <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Asset Name</ThemedText>
-                        <TextInput style={[styles.textInput, { color: textColor }]} placeholder="e.g., Reliance Industries" placeholderTextColor={secondaryTextColor} value={name} onChangeText={setName} editable={!isSold} />
+                        <TextInput 
+                            style={[styles.textInput, { color: textColor }]} 
+                            placeholder="e.g., Reliance Industries" 
+                            placeholderTextColor={placeholderColor}
+                            value={name} 
+                            onChangeText={setName} 
+                            editable={!isSold} 
+                        />
                     </ThemedView>
 
                     <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
@@ -288,10 +303,43 @@ export default function AddInvestmentScreen() {
                     <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
                         <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Details</ThemedText>
                         <View style={styles.inputRow}>
-                            <View style={styles.inputContainer}><ThemedText style={[styles.detailLabel, { color: secondaryTextColor }]}>Quantity</ThemedText><TextInput style={[styles.textInput, { color: textColor }]} placeholder="e.g., 10" value={quantity} onChangeText={setQuantity} editable={!isSold} keyboardType="decimal-pad" /></View>
-                            <View style={styles.inputContainer}><ThemedText style={[styles.detailLabel, { color: secondaryTextColor }]}>Purchase Price</ThemedText><TextInput style={[styles.textInput, { color: textColor }]} placeholder="e.g., 1500" value={purchasePrice} onChangeText={setPurchasePrice} editable={!isSold} keyboardType="decimal-pad" /></View>
+                            <View style={styles.inputContainer}>
+                                <ThemedText style={[styles.detailLabel, { color: secondaryTextColor }]}>Quantity</ThemedText>
+                                <TextInput 
+                                    style={[styles.textInput, { color: textColor }]} 
+                                    placeholder="e.g., 10" 
+                                    placeholderTextColor={placeholderColor}
+                                    value={quantity} 
+                                    onChangeText={setQuantity} 
+                                    editable={!isSold} 
+                                    keyboardType="decimal-pad" 
+                                />
+                            </View>
+                            <View style={styles.inputContainer}>
+                                <ThemedText style={[styles.detailLabel, { color: secondaryTextColor }]}>Purchase Price</ThemedText>
+                                <TextInput 
+                                    style={[styles.textInput, { color: textColor }]} 
+                                    placeholder="e.g., 1500" 
+                                    placeholderTextColor={placeholderColor}
+                                    value={purchasePrice} 
+                                    onChangeText={setPurchasePrice} 
+                                    editable={!isSold} 
+                                    keyboardType="decimal-pad" 
+                                />
+                            </View>
                         </View>
-                        <View style={styles.inputContainer}><ThemedText style={[styles.detailLabel, { color: secondaryTextColor }]}>Current Value</ThemedText><TextInput style={[styles.textInput, { color: textColor, marginTop: 4 }]} placeholder="e.g., 1650" value={currentValue} onChangeText={setCurrentValue} editable={!isSold} keyboardType="decimal-pad" /></View>
+                        <View style={styles.inputContainer}>
+                            <ThemedText style={[styles.detailLabel, { color: secondaryTextColor }]}>Current Value</ThemedText>
+                            <TextInput 
+                                style={[styles.textInput, { color: textColor, marginTop: 4 }]} 
+                                placeholder="e.g., 1650" 
+                                placeholderTextColor={placeholderColor}
+                                value={currentValue} 
+                                onChangeText={setCurrentValue} 
+                                editable={!isSold} 
+                                keyboardType="decimal-pad" 
+                            />
+                        </View>
                         
                         {isSold && soldPrice !== undefined && (
                             <View style={[styles.inputContainer, { marginTop: 16 }]}>
