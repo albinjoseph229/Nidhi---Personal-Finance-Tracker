@@ -1,0 +1,84 @@
+next tell me about the improvements we need to make to improve the logical flow of the app and to enable a great financial tracking and wealth management. i am planning we can create a bank account like structure so there will be a total balance. there is starting balance and, end balance for each month they are recorded. we can always edit the initial balance. if its an income it is added to the main balance and if its an expense then its reduced. if its an investment  then also the main balance is reduced. and when we sell the investment. then the main balance is updated even if its profit or loss so the total net worth will be always based on total balance plus total investments. is this flow correct or this needs any improvements. also can we add liabilities also.
+Your Excellent Flow is the Professional Standard 💡
+Let's confirm and slightly refine your plan. It's spot on.
+
+The "Bank Account" Concept: You'll have a central pool of cash, which we'll call Total Balance.
+
+Initial Balance: Users must be able to set a starting cash value when they set up the app or add a new account. This is crucial.
+
+Transaction Logic: Your rules are perfect:
+
+Income: Increases Total Balance.
+
+Expense: Decreases Total Balance.
+
+Investment Purchase: Decreases Total Balance (as cash is converted to an asset).
+
+Investment Sale: Increases Total Balance by the full sale amount (as the asset is converted back to cash).
+
+The Net Worth Formula: Your formula Net Worth = Total Balance + Total Investments is the correct way to calculate your Total Assets.
+
+Now, to answer your final two questions...
+
+## Yes, You Should Absolutely Add Liabilities
+Adding liabilities is the final piece of the puzzle to calculate your true Net Worth.
+
+What are Liabilities? Simply put, they are what you owe. This includes credit card debt, personal loans, car loans, mortgages, etc.
+
+The Complete Net Worth Formula: The universally accepted formula for net worth is:
+
+Net Worth = Assets - Liabilities
+
+Where:
+
+Assets = Your Total Balance (Cash) + Total Investment Value.
+
+Liabilities = The sum of all your outstanding debts.
+
+Implementing this will give your users the single most important number for understanding their financial health.
+
+## A Roadmap for Implementation 🗺️
+This is a significant architectural change, but you can implement it in logical steps.
+
+### Step 1: Database & Data Structure Changes (database.ts)
+You'll need new tables to support this structure.
+
+Create an Accounts Table: Instead of one abstract "balance," users can have multiple accounts (e.g., "Savings Account," "Cash Wallet").
+
+Fields: uuid, name (e.g., "HDFC Savings"), type ("Bank", "Cash", etc.), initialBalance, createdAt.
+
+Create a Liabilities Table:
+
+Fields: uuid, name (e.g., "Car Loan"), type ("Loan", "Credit Card"), totalAmount, amountPaid.
+
+Update the Transactions Table: This is a critical change. Every transaction must now be linked to an account.
+
+Add a new field: accountId to link it to the Accounts table.
+
+### Step 2: UI & Logic Changes (The Screens)
+Onboarding/Setup: Create a new screen for first-time users (or in Settings) called "Manage Accounts." Here, they can add their first account (e.g., "Main Savings") and enter their current balance as the initialBalance.
+
+Update Transaction Screens (add-expense, add-income):
+
+These screens must now have a dropdown selector for "Account." When a user adds an expense, they choose which account the money came from. This is how you'll know which balance to decrease.
+
+Update Investment Screen (add-investment):
+
+The "Deduct from Savings" toggle should be replaced with an "Invest From" account selector.
+
+When an investment is sold, the proceeds (totalSoldPrice) are added back to a user-selected account.
+
+Create a Liabilities Screen:
+
+A new screen where users can add, view, and update their liabilities. For example, they could add a "Home Loan" with a total of ₹50,00,000 and update the amountPaid field as they make payments.
+
+### Step 3: Update the Home Screen (index.tsx)
+This is where everything comes together. Your useMemo hook will now perform the new, robust calculations:
+
+Calculate Total Balance: Get the initialBalance from all accounts and then add all income and subtract all expenses/investment purchases linked to those accounts.
+
+Calculate Total Investment Value: This logic remains the same (sum of all active investments).
+
+Calculate Total Liabilities: Sum the totalAmount - amountPaid for all records in the Liabilities table.
+
+Calculate Final Net Worth: (Total Balance + Total Investment Value) - Total Liabilities.
