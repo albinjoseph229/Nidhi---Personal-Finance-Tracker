@@ -36,7 +36,6 @@ export default function HomeScreen() {
 
   const {
     savings,
-    // --- MODIFIED: Destructure `totalExpenses` for use in the UI ---
     totalExpenses,
     recentTransactions,
     dynamicWeeklyData,
@@ -47,7 +46,6 @@ export default function HomeScreen() {
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
 
-    // Use the more robust date parsing function
     const parseTransactionDate = (dateStr: string): Date => {
       let date: Date;
       if (dateStr.includes("T")) {
@@ -86,12 +84,15 @@ export default function HomeScreen() {
     const expenses = transactionsThisMonth
       .filter((tx) => tx.type === "expense")
       .reduce((sum, tx) => sum + tx.amount, 0);
-    
+
     const currentSavings = income - expenses;
 
-    // Use non-mutating sort for safety
     const recent = [...transactions]
-      .sort((a, b) => parseTransactionDate(b.date).getTime() - parseTransactionDate(a.date).getTime())
+      .sort(
+        (a, b) =>
+          parseTransactionDate(b.date).getTime() -
+          parseTransactionDate(a.date).getTime()
+      )
       .slice(0, 3);
 
     const weekData: WeeklyDataPoint[] = [];
@@ -115,7 +116,10 @@ export default function HomeScreen() {
         const txDate = parseTransactionDate(tx.date);
         return tx.type === "expense" && txDate >= sevenDaysAgo;
       } catch (error) {
-        console.error(`Error parsing weekly transaction date: ${tx.date}`, error);
+        console.error(
+          `Error parsing weekly transaction date: ${tx.date}`,
+          error
+        );
         return false;
       }
     });
@@ -143,7 +147,6 @@ export default function HomeScreen() {
 
     return {
       savings: currentSavings,
-      // --- MODIFIED: Return `totalExpenses` from the hook ---
       totalExpenses: expenses,
       recentTransactions: recent,
       dynamicWeeklyData: weekData,
@@ -212,44 +215,101 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
+        {/* --- MODIFIED: Summary Card with Right-Aligned Amounts --- */}
         <ThemedView
           style={[
             styles.summaryCard,
             { backgroundColor: cardColor, shadowColor: textColor },
           ]}
         >
-          <ThemedText style={[styles.summaryLabel, { color: secondaryTextColor }]}>
+          <ThemedText
+            style={[styles.summaryLabel, { color: secondaryTextColor }]}
+          >
             Net Worth
           </ThemedText>
           <ThemedText style={styles.netWorthAmount}>
             {formatAmount(netWorth)}
           </ThemedText>
 
-          <View style={[styles.summaryRow, { borderTopColor: separatorColor }]}>
-            <View style={styles.summaryItem}>
-              <ThemedText
-                style={[styles.summaryLabel, { color: secondaryTextColor }]}
-              >
-                Savings (Month)
-              </ThemedText>
-              <ThemedText style={[styles.summaryAmount, { color: textColor }]}>
-                {formatAmount(savings)}
-              </ThemedText>
+          <View
+            style={[styles.summaryDivider, { backgroundColor: separatorColor }]}
+          />
+
+          {/* Savings Item */}
+          <View style={styles.summaryListItem}>
+            <View style={styles.summaryItemLeft}>
+              <View style={styles.summaryIconContainer}>
+                <Feather name="dollar-sign" size={20} color="#34C759" />
+              </View>
+              <View>
+                <ThemedText style={styles.summaryItemTitle}>Savings</ThemedText>
+                <ThemedText
+                  style={[
+                    styles.summaryItemSubtitle,
+                    { color: secondaryTextColor },
+                  ]}
+                >
+                  (This Month)
+                </ThemedText>
+              </View>
             </View>
-            <View style={styles.summaryItem}>
-              <ThemedText
-                style={[styles.summaryLabel, { color: secondaryTextColor }]}
-              >
-                Investments
-              </ThemedText>
-              <ThemedText style={[styles.summaryAmount, { color: textColor }]}>
-                {formatAmount(totalInvestmentValue)}
-              </ThemedText>
+            <ThemedText style={[styles.summaryAmount, { color: "#34C759" }]}>
+              {formatAmount(savings)}
+            </ThemedText>
+          </View>
+
+          {/* Expenses Item */}
+          <View style={styles.summaryListItem}>
+            <View style={styles.summaryItemLeft}>
+              <View style={styles.summaryIconContainer}>
+                <Feather name="arrow-down-circle" size={20} color={textColor} />
+              </View>
+              <View>
+                <ThemedText style={styles.summaryItemTitle}>
+                  Expenses
+                </ThemedText>
+                <ThemedText
+                  style={[
+                    styles.summaryItemSubtitle,
+                    { color: secondaryTextColor },
+                  ]}
+                >
+                  (This Month)
+                </ThemedText>
+              </View>
             </View>
+            <ThemedText style={styles.summaryAmount}>
+              {formatAmount(totalExpenses)}
+            </ThemedText>
+          </View>
+
+          {/* Investments Item */}
+          <View style={styles.summaryListItem}>
+            <View style={styles.summaryItemLeft}>
+              <View style={styles.summaryIconContainer}>
+                <Feather name="trending-up" size={20} color="#007AFF" />
+              </View>
+              <View>
+                <ThemedText style={styles.summaryItemTitle}>
+                  Investments
+                </ThemedText>
+                <ThemedText
+                  style={[
+                    styles.summaryItemSubtitle,
+                    { color: secondaryTextColor },
+                  ]}
+                >
+                  (Total Value)
+                </ThemedText>
+              </View>
+            </View>
+            <ThemedText style={styles.summaryAmount}>
+              {formatAmount(totalInvestmentValue)}
+            </ThemedText>
           </View>
         </ThemedView>
 
-        {/* Analytics Card */}
+        {/* --- MODIFIED: Analytics Card header is now a static label --- */}
         <ThemedView
           lightColor="#1C1C1E"
           darkColor={cardColor}
@@ -263,11 +323,10 @@ export default function HomeScreen() {
             >
               Weekly Spend
             </ThemedText>
-            {/* --- MODIFIED: Display total monthly expenses --- */}
             <ThemedText
-              style={[styles.analyticsMonth, { color: secondaryTextColor, fontWeight: '600' }]}
+              style={[styles.analyticsMonth, { color: secondaryTextColor }]}
             >
-              {formatAmount(totalExpenses)}
+              
             </ThemedText>
           </View>
           <View style={styles.chartContainer}>
@@ -393,13 +452,65 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     width: "100%",
   },
+  summaryFullRow: {
+    alignItems: "center",
+    paddingTop: 16,
+    marginTop: 16,
+    borderTopWidth: 1,
+    width: "100%",
+  },
   summaryItem: { alignItems: "center", flex: 1 },
-  summaryLabel: { fontSize: 14, marginBottom: 4 },
-  summaryAmount: { fontSize: 20, fontWeight: "600" },
+  summaryLabel: {
+    fontSize: 14,
+    marginBottom: 2, // Reduced margin
+  },
+  summaryAmount: {
+    fontSize: 18, // Slightly smaller to fit the list better
+    fontWeight: "600",
+  },
   netWorthAmount: {
     fontSize: 32,
     fontWeight: "bold",
     marginTop: 4,
+  },
+  // --- NEW STYLES for improved summary card ---
+  summaryDivider: {
+    height: 1,
+    width: "100%",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  summaryListItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    paddingVertical: 12, // Adjusted padding
+    justifyContent: "space-between", // This is key to push amount to the right
+  },
+  summaryItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  summaryItemTitle: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  summaryItemSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  summaryIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+    backgroundColor: "rgba(128, 128, 128, 0.1)", // A subtle background for the icon
+  },
+  summaryTextContainer: {
+    flex: 1,
+    alignItems: "flex-start", // Align text to the left
   },
   analyticsCard: {
     borderRadius: 20,
@@ -417,7 +528,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   analyticsTitle: { fontSize: 18, fontWeight: "600" },
-  analyticsMonth: { fontSize: 16 }, // Adjusted font size
+  analyticsMonth: { fontSize: 16 },
   chartContainer: {
     flexDirection: "row",
     justifyContent: "space-around",

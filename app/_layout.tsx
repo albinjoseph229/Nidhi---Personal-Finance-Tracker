@@ -24,6 +24,8 @@ function AppContent() {
       <Stack.Screen name="add-investment" options={{ presentation: 'modal', headerShown: false }} />
       <Stack.Screen name="set-budget" options={{ presentation: 'modal', headerShown: false }} />
       <Stack.Screen name="financial-report" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="settings" options={{ presentation: 'modal', headerShown: false }} />
+
     </Stack>
   );
 }

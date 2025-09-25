@@ -199,7 +199,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 20 },
-    headerTitle: { fontSize: 28, fontWeight: 'bold' },
+    headerTitle: { fontSize: 28, fontWeight: 'bold',lineHeight: 34, },
     card: {
         marginHorizontal: 20,
         marginBottom: 20,
