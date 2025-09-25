@@ -39,7 +39,7 @@ const queueUnsyncedUpload = () => {
 };
 
 // --- NEW: Secure API communication function ---
-async function callSheetsApi(method: 'GET' | 'POST', params: any): Promise<any> {
+export async function callSheetsApi(method: 'GET' | 'POST', params: any): Promise<any> {
   if (!BACKEND_URL) {
     console.error('BACKEND_URL is missing. Current value:', BACKEND_URL);
     throw new Error("Backend URL is not configured in .env file. Please set EXPO_PUBLIC_BACKEND_URL");
@@ -460,7 +460,8 @@ export const uploadUnsyncedTransactions = async (): Promise<void> => {
   }
 };
 
-// --- MODIFIED: Investment upload now uses secure backend ---
+// In database.ts
+
 export const uploadUnsyncedInvestments = async (): Promise<void> => {
   try {
     const unsyncedInvs = await db.getAllAsync<Investment>(
@@ -474,6 +475,13 @@ export const uploadUnsyncedInvestments = async (): Promise<void> => {
     
     console.log(`Uploading ${unsyncedInvs.length} unsynced investments...`);
 
+    // --- OPTIMIZATION ---
+    // Fetch all existing investment UUIDs from the sheet just one time to avoid
+    // making a network request for every single item in the loop (the "N+1 problem").
+    const existingCheck = await callSheetsApi('GET', { queryString: '?action=getInvestments' });
+    const existingUuids = new Set((existingCheck?.data || []).map((inv: any) => inv.uuid));
+    // --- END OPTIMIZATION ---
+
     for (const inv of unsyncedInvs) {
       try {
         let action: string;
@@ -483,10 +491,8 @@ export const uploadUnsyncedInvestments = async (): Promise<void> => {
           action = "deleteInvestment";
           payloadData = { uuid: inv.uuid };
         } else {
-          // Check if investment already exists in Google Sheets
-          const existingCheck = await callSheetsApi('GET', { queryString: '?action=getInvestments' });
-          const existingInvestments = existingCheck?.data || [];
-          const existsInSheets = existingInvestments.some((existing: any) => existing.uuid === inv.uuid);
+          // Now, perform a fast check against the Set you already fetched
+          const existsInSheets = existingUuids.has(inv.uuid);
           
           action = existsInSheets ? "updateInvestment" : "addInvestment";
           payloadData = {
@@ -506,7 +512,9 @@ export const uploadUnsyncedInvestments = async (): Promise<void> => {
         
         await callSheetsApi('POST', { action, data: payloadData });
 
-        // Handle successful sync
+        // Handle successful sync:
+        // If the item was marked for deletion, permanently remove it from the local DB.
+        // Otherwise, mark it as synced.
         if (inv.isDeleted) {
           await db.runAsync(`DELETE FROM investments WHERE uuid = ?;`, [inv.uuid]);
           console.log(`Permanently deleted investment ${inv.uuid} after sync`);
@@ -518,12 +526,13 @@ export const uploadUnsyncedInvestments = async (): Promise<void> => {
       } catch (error) {
         console.error(`Failed to sync investment ${inv.uuid}:`, error);
         
-        // Check for network errors
+        // If a network error occurs, stop the sync process to avoid repeated failures.
+        // The remaining items will be synced in the next attempt.
         if (error instanceof Error && (error.message.includes('network') || error.message.includes('timeout'))) {
           console.log("Network error - will retry later");
-          break; // Stop trying other investments if network is down
+          break; 
         }
-        // Continue with other investments for non-network errors
+        // For other errors (e.g., bad data), continue to the next item.
       }
     }
   } catch (error) {

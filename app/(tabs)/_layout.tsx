@@ -17,12 +17,14 @@ const AddTransactionButton = ({ onPress }: { onPress: () => void }) => {
     <TouchableOpacity
       onPress={onPress}
       style={{
-        top: -22,
+        position: 'absolute',
+        bottom: 20, // keeps it floating above tab bar
+        alignSelf: 'center', // centers horizontally
         justifyContent: 'center',
         alignItems: 'center',
         width: 58,
         height: 58,
-        borderRadius: 30,
+        borderRadius: 29,
         backgroundColor: buttonBackgroundColor,
         shadowColor: shadowColor,
         shadowOffset: { width: 0, height: 2 },
@@ -84,9 +86,11 @@ export default function TabLayout() {
           name="add-transaction"
           options={{
             title: 'Add',
-            tabBarButton: () => <AddTransactionButton onPress={() => setModalVisible(true)} />,
+            tabBarButton: () => (
+              <AddTransactionButton onPress={() => setModalVisible(true)} />
+            ),
           }}
-          listeners={{ tabPress: e => { e.preventDefault(); }, }}
+          listeners={{ tabPress: e => e.preventDefault() }}
         />
         <Tabs.Screen
           name="reports"
@@ -95,15 +99,13 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => <Feather name="pie-chart" size={26} color={color} />,
           }}
         />
-        {/* --- MODIFIED PART --- */}
         <Tabs.Screen
-          name="investments" // Changed from "profile"
+          name="investments"
           options={{
-            title: 'Investments', // Changed title
-            tabBarIcon: ({ color }) => <Feather name="trending-up" size={26} color={color} />, // Changed icon
+            title: 'Investments',
+            tabBarIcon: ({ color }) => <Feather name="trending-up" size={26} color={color} />,
           }}
         />
-        {/* The 'profile' screen is removed from tabs */}
       </Tabs>
 
       <AddTransactionModal
