@@ -34,6 +34,9 @@ export default function ProfileScreen() {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [hasExistingReport, setHasExistingReport] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  // NEW: State for the last AI report generation time
+  const [lastAiReportTime, setLastAiReportTime] = useState<string | null>(null);
+
   // Get dynamic colors for styling
   const cardColor = useThemeColor({}, "card");
   const textColor = useThemeColor({}, "text");
@@ -47,6 +50,11 @@ export default function ProfileScreen() {
       const lastSync = await AsyncStorage.getItem("lastSyncTimestamp");
       if (lastSync) {
         setLastSyncTime(new Date(lastSync).toLocaleString());
+      }
+      // NEW: Load the last report timestamp
+      const lastReport = await AsyncStorage.getItem("lastAiReportTimestamp");
+      if (lastReport) {
+        setLastAiReportTime(new Date(lastReport).toLocaleString());
       }
     };
     loadSettingsData();
@@ -64,6 +72,12 @@ export default function ProfileScreen() {
       const report = await generateReportWithGemini(transactions, investments);
 
       await AsyncStorage.setItem("financial-report", JSON.stringify(report));
+
+      // NEW: Save and set the timestamp on success
+      const now = new Date();
+      await AsyncStorage.setItem("lastAiReportTimestamp", now.toISOString());
+      setLastAiReportTime(now.toLocaleString());
+
       setHasExistingReport(true);
       router.push("/financial-report");
     } catch (error) {
@@ -249,6 +263,12 @@ export default function ProfileScreen() {
             {isGeneratingAiReport
               ? "Generating Report..."
               : "Generate AI Report"}
+            {/* NEW: Display the last report time */}
+            {lastAiReportTime && !isGeneratingAiReport && (
+              <ThemedText style={{ fontSize: 12, color: secondaryTextColor }}>
+                {"\n"}Last: {lastAiReportTime}
+              </ThemedText>
+            )}
           </ThemedText>
           {isGeneratingAiReport ? (
             <ActivityIndicator color={secondaryTextColor} />

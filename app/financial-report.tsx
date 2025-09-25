@@ -59,6 +59,13 @@ export default function FinancialReportScreen() {
     }
   };
 
+  // Helper function to get a lighter, transparent version of the health color for the background
+  const getHealthBackgroundColor = (status: 'Poor' | 'Fair' | 'Good' | 'Excellent') => {
+    const baseColor = getHealthColor(status);
+    // Add '15' to the hex color for 15% opacity (e.g., #RRGGBB15)
+    return baseColor + '15'; 
+  }
+
   // Helper function to get color based on profit/loss
   const getProfitLossColor = (amount: number) => {
     return amount >= 0 ? '#4CAF50' : '#F44336';
@@ -180,7 +187,15 @@ export default function FinancialReportScreen() {
                 color={getHealthColor(report.financialHealth.status)}
               >
                 <View style={styles.healthContainer}>
-                  <View style={[styles.scoreCircle, { borderColor: getHealthColor(report.financialHealth.status) + '40' }]}>
+                  <View 
+                    style={[
+                      styles.scoreCircle, 
+                      { 
+                        borderColor: getHealthColor(report.financialHealth.status) + '40',
+                        backgroundColor: getHealthBackgroundColor(report.financialHealth.status), // NEW: Dynamic background color
+                      }
+                    ]}
+                  >
                     <ThemedText style={[styles.scoreText, { color: getHealthColor(report.financialHealth.status) }]}>
                       {report.financialHealth.score}
                     </ThemedText>
@@ -499,24 +514,28 @@ const styles = StyleSheet.create({
   healthContainer: {
     flexDirection: 'row',
     marginBottom: 24,
+    alignItems: 'center',
   },
   scoreCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,   // MODIFIED: Increased size
+    height: 120,  // MODIFIED: Increased size
+    borderRadius: 60, // MODIFIED: Half of new width/height
     borderWidth: 3,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 20,
+    // Background color is now set dynamically in JSX
   },
   scoreText: {
-    fontSize: 24,
+    fontSize: 28, // MODIFIED: Increased font size
     fontWeight: 'bold',
   },
   scoreLabel: {
-    fontSize: 12,
+    fontSize: 13, // MODIFIED: Slightly increased font size for readability
     fontWeight: '600',
     marginTop: 2,
+    textAlign: 'center',
+    paddingHorizontal: 4,
   },
   concernsContainer: {
     flex: 1,

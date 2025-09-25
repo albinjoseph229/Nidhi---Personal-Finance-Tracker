@@ -9,9 +9,14 @@ import { useThemeColor } from '../../hooks/use-theme-color';
 
 const AddTransactionButton = ({ onPress }: { onPress: () => void }) => {
   const { theme } = useTheme();
-  const buttonBackgroundColor = theme === 'light' ? '#4A90E2' : useThemeColor({}, 'card');
-  const iconColor = theme === 'light' ? '#FFFFFF' : useThemeColor({}, 'text');
+  // ✅ Call all hooks unconditionally at the top.
+  const cardThemeColor = useThemeColor({}, 'card');
+  const textThemeColor = useThemeColor({}, 'text');
   const shadowColor = useThemeColor({}, 'text');
+
+  // ✅ Use the *results* of the hooks in your conditional logic.
+  const buttonBackgroundColor = theme === 'light' ? '#4A90E2' : cardThemeColor;
+  const iconColor = theme === 'light' ? '#FFFFFF' : textThemeColor;
 
   return (
     <TouchableOpacity
