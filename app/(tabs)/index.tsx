@@ -36,6 +36,7 @@ export default function HomeScreen() {
 
   const {
     savings,
+    // --- MODIFIED: Destructure `totalExpenses` for use in the UI ---
     totalExpenses,
     recentTransactions,
     dynamicWeeklyData,
@@ -46,6 +47,7 @@ export default function HomeScreen() {
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
 
+    // Use the more robust date parsing function
     const parseTransactionDate = (dateStr: string): Date => {
       let date: Date;
       if (dateStr.includes("T")) {
@@ -87,6 +89,7 @@ export default function HomeScreen() {
     
     const currentSavings = income - expenses;
 
+    // Use non-mutating sort for safety
     const recent = [...transactions]
       .sort((a, b) => parseTransactionDate(b.date).getTime() - parseTransactionDate(a.date).getTime())
       .slice(0, 3);
@@ -140,6 +143,7 @@ export default function HomeScreen() {
 
     return {
       savings: currentSavings,
+      // --- MODIFIED: Return `totalExpenses` from the hook ---
       totalExpenses: expenses,
       recentTransactions: recent,
       dynamicWeeklyData: weekData,
@@ -208,7 +212,6 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* --- MODIFIED: Summary Card now includes Monthly Expenses --- */}
         <ThemedView
           style={[
             styles.summaryCard,
@@ -244,20 +247,9 @@ export default function HomeScreen() {
               </ThemedText>
             </View>
           </View>
-          
-          <View style={[styles.summaryFullRow, { borderTopColor: separatorColor }]}>
-            <ThemedText
-              style={[styles.summaryLabel, { color: secondaryTextColor }]}
-            >
-              Expenses (Month)
-            </ThemedText>
-            <ThemedText style={[styles.summaryAmount, { color: textColor }]}>
-              {formatAmount(totalExpenses)}
-            </ThemedText>
-          </View>
         </ThemedView>
 
-        {/* --- MODIFIED: Analytics Card header is now a static label --- */}
+        {/* Analytics Card */}
         <ThemedView
           lightColor="#1C1C1E"
           darkColor={cardColor}
@@ -271,10 +263,11 @@ export default function HomeScreen() {
             >
               Weekly Spend
             </ThemedText>
+            {/* --- MODIFIED: Display total monthly expenses --- */}
             <ThemedText
-              style={[styles.analyticsMonth, { color: secondaryTextColor }]}
+              style={[styles.analyticsMonth, { color: secondaryTextColor, fontWeight: '600' }]}
             >
-              This Month
+              {formatAmount(totalExpenses)}
             </ThemedText>
           </View>
           <View style={styles.chartContainer}>
@@ -400,14 +393,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     width: "100%",
   },
-  // --- NEW STYLE: For the full-width expense row ---
-  summaryFullRow: {
-    alignItems: "center",
-    paddingTop: 16,
-    marginTop: 16,
-    borderTopWidth: 1,
-    width: "100%",
-  },
   summaryItem: { alignItems: "center", flex: 1 },
   summaryLabel: { fontSize: 14, marginBottom: 4 },
   summaryAmount: { fontSize: 20, fontWeight: "600" },
@@ -432,7 +417,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   analyticsTitle: { fontSize: 18, fontWeight: "600" },
-  analyticsMonth: { fontSize: 16 },
+  analyticsMonth: { fontSize: 16 }, // Adjusted font size
   chartContainer: {
     flexDirection: "row",
     justifyContent: "space-around",

@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -36,6 +37,8 @@ interface Category {
 const investmentCategories: Category[] = [
     { name: "Stock", icon: "bar-chart-2", color: "#45B7D1" },
     { name: "Gold", icon: "disc", color: "#FECA57" },
+    { name: "Silver", icon: "aperture", color: "#BDC3C7" },
+    { name: "Crypto", icon: "dollar-sign", color: "#9B59B6" },
     { name: "Mutual Fund", icon: "layers", color: "#4ECDC4" },
     { name: "Other", icon: "archive", color: "#96CEB4" },
 ];
@@ -45,7 +48,6 @@ const SellInvestmentModal = ({ isVisible, onClose, onSell }: { isVisible: boolea
     const [price, setPrice] = useState('');
     const cardColor = useThemeColor({}, "card");
     const textColor = useThemeColor({}, "text");
-    // --- FIX 1: Use a valid theme color for the border ---
     const separatorColor = useThemeColor({}, "tabIconDefault");
 
     const handleSell = () => {
@@ -127,8 +129,45 @@ export default function AddInvestmentScreen() {
     const saveButtonActiveColor = theme === "light" ? "#1C1C1E" : cardColor;
     const saveButtonTextColor = theme === "light" ? "#FFFFFF" : textColor;
 
-    const showDatePicker = () => { /* ... */ };
-    const handleDelete = () => { /* ... */ };
+    const showDatePicker = () => {
+        DateTimePickerAndroid.open({
+            value: purchaseDate,
+            onChange: (event, selectedDate) => {
+                if (selectedDate) {
+                    const istDate = getISTDate(selectedDate.toISOString());
+                    setPurchaseDate(istDate);
+                }
+            },
+            mode: "date",
+        });
+    };
+    
+    // FIX 3: Implement the delete functionality
+    const handleDelete = () => {
+        if (!params.uuid) return;
+
+        Alert.alert(
+            "Delete Investment",
+            "Are you sure you want to permanently delete this investment? This action cannot be undone.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await deleteInvestment(params.uuid!);
+                            if (router.canGoBack()) {
+                                router.back();
+                            }
+                        } catch (error) {
+                            Alert.alert("Error", "Failed to delete the investment.");
+                        }
+                    },
+                },
+            ]
+        );
+    };
 
     const confirmSell = async (priceString: string) => {
         setSellModalVisible(false);
@@ -228,7 +267,6 @@ export default function AddInvestmentScreen() {
                     </View>
                 </View>
 
-                {/* --- FIX 2: The ScrollView with all the form content was missing --- */}
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                     <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
                         <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Asset Name</ThemedText>
@@ -272,7 +310,6 @@ export default function AddInvestmentScreen() {
                         </Pressable>
                     </ThemedView>
                 </ScrollView>
-                {/* --- End of restored ScrollView --- */}
 
                 <ThemedView style={styles.bottomContainer}>
                     {isEditMode && !isSold && (

@@ -1,63 +1,41 @@
-import { Stack } from "expo-router";
-import { AppProvider } from "../context/AppContext"; // Import the provider
-import { ThemeProvider } from "../context/ThemeContext";
+// In app/_layout.tsx
+
+import { Stack } from 'expo-router';
+import { LockScreen } from '../components/LockScreen'; // Import the LockScreen
+import { AppProvider } from '../context/AppContext';
+import { AuthProvider, useAuth } from '../context/AuthContext'; // Import AuthProvider and useAuth
+import { ThemeProvider } from '../context/ThemeContext';
+
+// This new component will decide whether to show the app or the lock screen
+function AppContent() {
+  const { isAppLockEnabled, isAuthenticated } = useAuth();
+  
+  // Show the lock screen if the feature is enabled AND the user is not authenticated
+  if (isAppLockEnabled && !isAuthenticated) {
+    return <LockScreen />;
+  }
+
+  // Otherwise, show the main app
+  return (
+    <Stack>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="add-expense" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="add-income" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="add-investment" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="set-budget" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="financial-report" options={{ presentation: 'modal', headerShown: false }} />
+    </Stack>
+  );
+}
+
 
 export default function RootLayout() {
   return (
     <ThemeProvider>
       <AppProvider>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="add-expense"
-            options={{
-              presentation: "modal",
-              title: "Add Expense",
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="add-investment"
-            options={{
-              presentation: "modal",
-              title: "Add Investment",
-              headerShown: false,
-            }}
-          />
-
-          <Stack.Screen
-            name="set-budget"
-            options={{
-              presentation: "modal",
-              title: "Set Budget",
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="add-income"
-            options={{
-              presentation: "modal",
-              title: "Add Income",
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="financial-report"
-            options={{
-              presentation: "modal",
-              title: "Financial Report",
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="settings"
-            options={{
-              presentation: "modal",
-              title: "Settings",
-              headerShown: false,
-            }}
-          />
-        </Stack>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
       </AppProvider>
     </ThemeProvider>
   );

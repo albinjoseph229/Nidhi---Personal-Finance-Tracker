@@ -313,7 +313,7 @@ export default function FinancialReportScreen() {
 
             {/* Financial Insights Section */}
             <SectionCard
-              icon="lightbulb"
+              icon="zap"
               title="Key Insights"
               color="#FF9800"
             >

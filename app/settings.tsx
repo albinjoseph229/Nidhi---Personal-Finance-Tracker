@@ -1,4 +1,4 @@
-// In app/(tabs)/profile.tsx
+// In app/settings.tsx
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -6,10 +6,11 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 
-// Import our themed components and hooks (PATHS CORRECTED)
+// Import our themed components and hooks
 import { ThemedText } from '../components/themed-text';
 import { ThemedView } from '../components/themed-view';
 import { useAppData } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext'; // Import useAuth
 import { useTheme } from '../context/ThemeContext';
 import { useThemeColor } from '../hooks/use-theme-color';
 import { generateReportWithGemini } from '../utils/geminiApi';
@@ -20,6 +21,7 @@ export default function ProfileScreen() {
     const { theme, toggleTheme } = useTheme();
     const { isSyncing, triggerFullSync, transactions, investments } = useAppData();
     const router = useRouter();
+    const { isAppLockEnabled, toggleAppLock } = useAuth(); // Get auth state and function
 
     const [isGeneratingAiReport, setIsGeneratingAiReport] = useState(false);
     const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -46,7 +48,7 @@ export default function ProfileScreen() {
         setIsGeneratingAiReport(true);
         try {
             const report = await generateReportWithGemini(transactions, investments);
-            
+
             await AsyncStorage.setItem('financial-report', JSON.stringify(report));
             setHasExistingReport(true);
             router.push('/financial-report');
@@ -62,7 +64,7 @@ export default function ProfileScreen() {
         if (transactions.length === 0) {
             return Alert.alert("No Data", "There are no transactions to export.");
         }
-        
+
         Alert.alert(
             "Export to PDF",
             "This will generate a PDF file of all your transaction data. Continue?",
@@ -113,7 +115,7 @@ export default function ProfileScreen() {
             <View style={styles.header}>
                 <ThemedText style={styles.headerTitle}>Settings</ThemedText>
             </View>
-            
+
             <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
                 <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Appearance</ThemedText>
                 <View style={[styles.row, { borderBottomWidth: 0 }]}>
@@ -128,9 +130,24 @@ export default function ProfileScreen() {
                 </View>
             </ThemedView>
 
+            {/* NEW: Security Card */}
+            <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
+                <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Security</ThemedText>
+                <View style={[styles.row, { borderBottomWidth: 0 }]}>
+                    <Feather name="shield" size={20} style={[styles.rowIcon, { color: secondaryTextColor }]} />
+                    <ThemedText style={styles.rowLabel}>App Lock</ThemedText>
+                    <Switch
+                        value={isAppLockEnabled}
+                        onValueChange={toggleAppLock}
+                        trackColor={{ false: "#E9E9EA", true: "#34C759" }}
+                        thumbColor={"#FFFFFF"}
+                    />
+                </View>
+            </ThemedView>
+
             <ThemedView style={[styles.card, { backgroundColor: cardColor, shadowColor: textColor }]}>
                 <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Data & Reports</ThemedText>
-                
+
                 <Pressable
                     style={[styles.row, { borderBottomColor: separatorColor }]}
                     onPress={handleFullSync}
