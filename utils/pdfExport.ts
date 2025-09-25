@@ -1,8 +1,8 @@
 // In utils/pdfExport.ts
-import { File, Paths } from 'expo-file-system';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
-import { Investment, Transaction } from '../database';
+import { File, Paths } from "expo-file-system";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
+import { Investment, Transaction } from "../database";
 
 // Interfaces for structured report data
 interface MonthlyData {
@@ -21,7 +21,14 @@ interface InvestmentData {
   totalSoldProfit: number;
   activeInvestments: number;
   soldInvestments: number;
-  investmentsByType: { [type: string]: { investment: number; currentValue: number; profitLoss: number; count: number } };
+  investmentsByType: {
+    [type: string]: {
+      investment: number;
+      currentValue: number;
+      profitLoss: number;
+      count: number;
+    };
+  };
 }
 
 interface YearlyData {
@@ -36,13 +43,13 @@ interface YearlyData {
 
 // Main function to generate and share the PDF
 export const generateFinancialReport = async (
-  transactions: Transaction[], 
+  transactions: Transaction[],
   investments: Investment[] = []
 ): Promise<void> => {
   try {
     const reportData = processTransactionData(transactions, investments);
     const htmlContent = generateHTMLContent(reportData, investments);
-    
+
     // 1. Print the HTML to a temporary PDF file
     const { uri: tempUri } = await Print.printToFileAsync({
       html: htmlContent,
@@ -53,28 +60,32 @@ export const generateFinancialReport = async (
     const tempFile = new File(tempUri);
 
     // 3. Define the new filename and create a File instance for the destination
-    const fileName = `Financial_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+    const timestamp = new Date().toISOString().replace(/:/g, "-").split(".")[0];
+    const fileName = `Financial_Report_${timestamp}.pdf`;
     const destinationFile = new File(Paths.document, fileName);
-    
+
     // 4. Move the temporary file to its final destination
     await tempFile.move(destinationFile);
 
     // 5. Share the file from its new location
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(destinationFile.uri, {
-        mimeType: 'application/pdf',
-        dialogTitle: 'Share Financial Report',
+        mimeType: "application/pdf",
+        dialogTitle: "Share Financial Report",
       });
     }
   } catch (error) {
-    console.error('PDF generation failed:', error);
-    throw new Error('Failed to generate PDF report');
+    console.error("PDF generation failed:", error);
+    throw new Error("Failed to generate PDF report");
   }
 };
 
 // Process investments data for a specific year
-const processInvestmentDataForYear = (investments: Investment[], year: number): InvestmentData => {
-  const yearInvestments = investments.filter(inv => {
+const processInvestmentDataForYear = (
+  investments: Investment[],
+  year: number
+): InvestmentData => {
+  const yearInvestments = investments.filter((inv) => {
     const purchaseYear = new Date(inv.purchaseDate).getFullYear();
     return purchaseYear === year;
   });
@@ -86,19 +97,22 @@ const processInvestmentDataForYear = (investments: Investment[], year: number): 
     totalSoldProfit: 0,
     activeInvestments: 0,
     soldInvestments: 0,
-    investmentsByType: {}
+    investmentsByType: {},
   };
 
-  yearInvestments.forEach(inv => {
+  yearInvestments.forEach((inv) => {
     const totalInvested = inv.quantity * inv.purchasePrice;
-    const currentVal = inv.status === 'sold' ? (inv.soldPrice || 0) * inv.quantity : inv.currentValue * inv.quantity;
+    const currentVal =
+      inv.status === "sold"
+        ? (inv.soldPrice || 0) * inv.quantity
+        : inv.currentValue * inv.quantity;
     const profitLoss = currentVal - totalInvested;
 
     investmentData.totalInvestment += totalInvested;
     investmentData.currentValue += currentVal;
     investmentData.totalProfitLoss += profitLoss;
 
-    if (inv.status === 'sold') {
+    if (inv.status === "sold") {
       investmentData.totalSoldProfit += profitLoss;
       investmentData.soldInvestments++;
     } else {
@@ -111,7 +125,7 @@ const processInvestmentDataForYear = (investments: Investment[], year: number): 
         investment: 0,
         currentValue: 0,
         profitLoss: 0,
-        count: 0
+        count: 0,
       };
     }
 
@@ -125,15 +139,18 @@ const processInvestmentDataForYear = (investments: Investment[], year: number): 
 };
 
 // Processes raw transactions and investments into a structured yearly/monthly format
-const processTransactionData = (transactions: Transaction[], investments: Investment[] = []): YearlyData[] => {
+const processTransactionData = (
+  transactions: Transaction[],
+  investments: Investment[] = []
+): YearlyData[] => {
   const yearlyMap: { [year: number]: YearlyData } = {};
-  
+
   // Process transactions
   transactions.forEach((tx) => {
     const date = new Date(tx.date);
     const year = date.getFullYear();
-    const month = date.toLocaleString('en-US', { month: 'long' });
-    
+    const month = date.toLocaleString("en-US", { month: "long" });
+
     if (!yearlyMap[year]) {
       yearlyMap[year] = {
         year,
@@ -149,21 +166,21 @@ const processTransactionData = (transactions: Transaction[], investments: Invest
           totalSoldProfit: 0,
           activeInvestments: 0,
           soldInvestments: 0,
-          investmentsByType: {}
-        }
+          investmentsByType: {},
+        },
       };
     }
-    
+
     const yearData = yearlyMap[year];
     yearData.transactionCount++;
-    
-    if (tx.type === 'income') {
+
+    if (tx.type === "income") {
       yearData.income += tx.amount;
     } else {
       yearData.expenses += tx.amount;
     }
-    
-    let monthData = yearData.monthlyBreakdown.find(m => m.month === month);
+
+    let monthData = yearData.monthlyBreakdown.find((m) => m.month === month);
     if (!monthData) {
       monthData = {
         month,
@@ -175,9 +192,9 @@ const processTransactionData = (transactions: Transaction[], investments: Invest
       };
       yearData.monthlyBreakdown.push(monthData);
     }
-    
+
     monthData.transactionCount++;
-    if (tx.type === 'income') {
+    if (tx.type === "income") {
       monthData.income += tx.amount;
     } else {
       monthData.expenses += tx.amount;
@@ -186,13 +203,16 @@ const processTransactionData = (transactions: Transaction[], investments: Invest
   });
 
   // Process investments for each year
-  Object.keys(yearlyMap).forEach(yearStr => {
+  Object.keys(yearlyMap).forEach((yearStr) => {
     const year = parseInt(yearStr);
-    yearlyMap[year].investments = processInvestmentDataForYear(investments, year);
+    yearlyMap[year].investments = processInvestmentDataForYear(
+      investments,
+      year
+    );
   });
 
   // Also add years that only have investments (no transactions)
-  investments.forEach(inv => {
+  investments.forEach((inv) => {
     const year = new Date(inv.purchaseDate).getFullYear();
     if (!yearlyMap[year]) {
       yearlyMap[year] = {
@@ -202,115 +222,159 @@ const processTransactionData = (transactions: Transaction[], investments: Invest
         savings: 0,
         transactionCount: 0,
         monthlyBreakdown: [],
-        investments: processInvestmentDataForYear(investments, year)
+        investments: processInvestmentDataForYear(investments, year),
       };
     }
   });
-  
-  Object.values(yearlyMap).forEach(yearData => {
+
+  Object.values(yearlyMap).forEach((yearData) => {
     yearData.savings = yearData.income - yearData.expenses;
-    const monthOrder = ['January', 'February', 'March', 'April', 'May', 'June',
-                      'July', 'August', 'September', 'October', 'November', 'December'];
-    yearData.monthlyBreakdown.sort((a, b) => monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month));
+    const monthOrder = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    yearData.monthlyBreakdown.sort(
+      (a, b) => monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month)
+    );
   });
-  
+
   return Object.values(yearlyMap).sort((a, b) => b.year - a.year);
 };
 
 const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
     minimumFractionDigits: 2,
-  }).format(amount).replace('₹', '₹ ');
+  })
+    .format(amount)
+    .replace("₹", "₹ ");
 };
 
 // Generates the complete HTML string for the PDF
-const generateHTMLContent = (data: YearlyData[], allInvestments: Investment[] = []): string => {
-  const currentDate = new Date().toLocaleDateString('en-IN');
+const generateHTMLContent = (
+  data: YearlyData[],
+  allInvestments: Investment[] = []
+): string => {
+  const currentDate = new Date().toLocaleDateString("en-IN");
   const totalIncome = data.reduce((sum, year) => sum + year.income, 0);
   const totalExpenses = data.reduce((sum, year) => sum + year.expenses, 0);
   const totalSavings = totalIncome - totalExpenses;
 
   // Calculate overall investment summary
-  const overallInvestmentSummary = allInvestments.reduce((acc, inv) => {
-    const totalInvested = inv.quantity * inv.purchasePrice;
-    const currentVal = inv.status === 'sold' ? (inv.soldPrice || 0) * inv.quantity : inv.currentValue * inv.quantity;
-    const profitLoss = currentVal - totalInvested;
+  const overallInvestmentSummary = allInvestments.reduce(
+    (acc, inv) => {
+      const totalInvested = inv.quantity * inv.purchasePrice;
+      const currentVal =
+        inv.status === "sold"
+          ? (inv.soldPrice || 0) * inv.quantity
+          : inv.currentValue * inv.quantity;
+      const profitLoss = currentVal - totalInvested;
 
-    acc.totalInvestment += totalInvested;
-    acc.currentValue += currentVal;
-    acc.totalProfitLoss += profitLoss;
+      acc.totalInvestment += totalInvested;
+      acc.currentValue += currentVal;
+      acc.totalProfitLoss += profitLoss;
 
-    if (inv.status === 'sold') {
-      acc.totalSoldProfit += profitLoss;
-      acc.soldCount++;
-    } else {
-      acc.activeCount++;
+      if (inv.status === "sold") {
+        acc.totalSoldProfit += profitLoss;
+        acc.soldCount++;
+      } else {
+        acc.activeCount++;
+      }
+
+      return acc;
+    },
+    {
+      totalInvestment: 0,
+      currentValue: 0,
+      totalProfitLoss: 0,
+      totalSoldProfit: 0,
+      activeCount: 0,
+      soldCount: 0,
     }
-
-    return acc;
-  }, {
-    totalInvestment: 0,
-    currentValue: 0,
-    totalProfitLoss: 0,
-    totalSoldProfit: 0,
-    activeCount: 0,
-    soldCount: 0
-  });
+  );
 
   const generateChartUrl = (yearData: YearlyData) => {
-    const labels = yearData.monthlyBreakdown.map(m => m.month.substring(0, 3));
-    const incomeData = yearData.monthlyBreakdown.map(m => m.income);
-    const expenseData = yearData.monthlyBreakdown.map(m => m.expenses);
-    
+    const labels = yearData.monthlyBreakdown.map((m) =>
+      m.month.substring(0, 3)
+    );
+    const incomeData = yearData.monthlyBreakdown.map((m) => m.income);
+    const expenseData = yearData.monthlyBreakdown.map((m) => m.expenses);
+
     const chartConfig = {
-      type: 'bar',
+      type: "bar",
       data: {
         labels: labels,
         datasets: [
-          { label: 'Income', data: incomeData, backgroundColor: 'rgba(52, 199, 89, 0.7)' },
-          { label: 'Expenses', data: expenseData, backgroundColor: 'rgba(255, 59, 48, 0.7)' }
-        ]
+          {
+            label: "Income",
+            data: incomeData,
+            backgroundColor: "rgba(52, 199, 89, 0.7)",
+          },
+          {
+            label: "Expenses",
+            data: expenseData,
+            backgroundColor: "rgba(255, 59, 48, 0.7)",
+          },
+        ],
       },
-      options: { 
-        title: { display: true, text: `${yearData.year} Financial Summary` }, 
-        legend: { position: 'top' },
-        scales: { y: { beginAtZero: true } }
-      }
+      options: {
+        title: { display: true, text: `${yearData.year} Financial Summary` },
+        legend: { position: "top" },
+        scales: { y: { beginAtZero: true } },
+      },
     };
-    return `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(chartConfig))}&width=500&height=300`;
+    return `https://quickchart.io/chart?c=${encodeURIComponent(
+      JSON.stringify(chartConfig)
+    )}&width=500&height=300`;
   };
 
   const generateInvestmentChart = (yearData: YearlyData) => {
-    if (Object.keys(yearData.investments.investmentsByType).length === 0) return '';
-    
+    if (Object.keys(yearData.investments.investmentsByType).length === 0)
+      return "";
+
     const types = Object.keys(yearData.investments.investmentsByType);
-    const values = types.map(type => yearData.investments.investmentsByType[type].currentValue);
-    
+    const values = types.map(
+      (type) => yearData.investments.investmentsByType[type].currentValue
+    );
+
     const chartConfig = {
-      type: 'pie',
+      type: "pie",
       data: {
         labels: types,
-        datasets: [{
-          data: values,
-          backgroundColor: [
-            'rgba(52, 199, 89, 0.8)',
-            'rgba(0, 122, 255, 0.8)',
-            'rgba(255, 149, 0, 0.8)',
-            'rgba(175, 82, 222, 0.8)',
-            'rgba(255, 59, 48, 0.8)'
-          ]
-        }]
+        datasets: [
+          {
+            data: values,
+            backgroundColor: [
+              "rgba(52, 199, 89, 0.8)",
+              "rgba(0, 122, 255, 0.8)",
+              "rgba(255, 149, 0, 0.8)",
+              "rgba(175, 82, 222, 0.8)",
+              "rgba(255, 59, 48, 0.8)",
+            ],
+          },
+        ],
       },
       options: {
         title: { display: true, text: `${yearData.year} Investment Portfolio` },
-        legend: { position: 'right' }
-      }
+        legend: { position: "right" },
+      },
     };
-    
+
     return `<div class="chart">
-      <img src="https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(chartConfig))}&width=400&height=250" alt="${yearData.year} Investment Chart" />
+      <img src="https://quickchart.io/chart?c=${encodeURIComponent(
+        JSON.stringify(chartConfig)
+      )}&width=400&height=250" alt="${yearData.year} Investment Chart" />
     </div>`;
   };
 
@@ -375,21 +439,29 @@ const generateHTMLContent = (data: YearlyData[], allInvestments: Investment[] = 
         </div>
       </div>
 
-      ${overallInvestmentSummary.totalInvestment > 0 ? `
+      ${
+        overallInvestmentSummary.totalInvestment > 0
+          ? `
       <div class="investment-card">
         <h2>Overall Investment Summary</h2>
         <div class="summary-grid">
           <div class="summary-item">
             <div class="label">Total Investment</div>
-            <div class="value investment">${formatCurrency(overallInvestmentSummary.totalInvestment)}</div>
+            <div class="value investment">${formatCurrency(
+              overallInvestmentSummary.totalInvestment
+            )}</div>
           </div>
           <div class="summary-item">
             <div class="label">Current Value</div>
-            <div class="value investment">${formatCurrency(overallInvestmentSummary.currentValue)}</div>
+            <div class="value investment">${formatCurrency(
+              overallInvestmentSummary.currentValue
+            )}</div>
           </div>
           <div class="summary-item">
             <div class="label">Total P&L</div>
-            <div class="value ${overallInvestmentSummary.totalProfitLoss >= 0 ? 'profit' : 'loss'}">${formatCurrency(overallInvestmentSummary.totalProfitLoss)}</div>
+            <div class="value ${
+              overallInvestmentSummary.totalProfitLoss >= 0 ? "profit" : "loss"
+            }">${formatCurrency(overallInvestmentSummary.totalProfitLoss)}</div>
           </div>
           <div class="summary-item">
             <div class="label">Active Investments</div>
@@ -401,13 +473,19 @@ const generateHTMLContent = (data: YearlyData[], allInvestments: Investment[] = 
           </div>
           <div class="summary-item">
             <div class="label">Realized P&L</div>
-            <div class="value ${overallInvestmentSummary.totalSoldProfit >= 0 ? 'profit' : 'loss'}">${formatCurrency(overallInvestmentSummary.totalSoldProfit)}</div>
+            <div class="value ${
+              overallInvestmentSummary.totalSoldProfit >= 0 ? "profit" : "loss"
+            }">${formatCurrency(overallInvestmentSummary.totalSoldProfit)}</div>
           </div>
         </div>
       </div>
-      ` : ''}
+      `
+          : ""
+      }
 
-      ${data.map(yearData => `
+      ${data
+        .map(
+          (yearData) => `
         <div class="year-section">
           <h2>${yearData.year} Report</h2>
           
@@ -415,37 +493,53 @@ const generateHTMLContent = (data: YearlyData[], allInvestments: Investment[] = 
             <div>
               <h3>Income vs Expenses</h3>
               <div class="chart">
-                <img src="${generateChartUrl(yearData)}" alt="${yearData.year} Chart" />
+                <img src="${generateChartUrl(yearData)}" alt="${
+            yearData.year
+          } Chart" />
               </div>
             </div>
             
-            ${yearData.investments.totalInvestment > 0 ? `
+            ${
+              yearData.investments.totalInvestment > 0
+                ? `
             <div>
               <h3>Investment Portfolio</h3>
               ${generateInvestmentChart(yearData)}
             </div>
-            ` : '<div></div>'}
+            `
+                : "<div></div>"
+            }
           </div>
 
-          ${yearData.investments.totalInvestment > 0 ? `
+          ${
+            yearData.investments.totalInvestment > 0
+              ? `
           <div class="investment-card">
             <h3>${yearData.year} Investment Summary</h3>
             <div class="summary-grid">
               <div class="summary-item">
                 <div class="label">Total Investment</div>
-                <div class="value investment">${formatCurrency(yearData.investments.totalInvestment)}</div>
+                <div class="value investment">${formatCurrency(
+                  yearData.investments.totalInvestment
+                )}</div>
               </div>
               <div class="summary-item">
                 <div class="label">Current Value</div>
-                <div class="value investment">${formatCurrency(yearData.investments.currentValue)}</div>
+                <div class="value investment">${formatCurrency(
+                  yearData.investments.currentValue
+                )}</div>
               </div>
               <div class="summary-item">
                 <div class="label">Profit/Loss</div>
-                <div class="value ${yearData.investments.totalProfitLoss >= 0 ? 'profit' : 'loss'}">${formatCurrency(yearData.investments.totalProfitLoss)}</div>
+                <div class="value ${
+                  yearData.investments.totalProfitLoss >= 0 ? "profit" : "loss"
+                }">${formatCurrency(yearData.investments.totalProfitLoss)}</div>
               </div>
               <div class="summary-item">
                 <div class="label">Active</div>
-                <div class="value">${yearData.investments.activeInvestments}</div>
+                <div class="value">${
+                  yearData.investments.activeInvestments
+                }</div>
               </div>
               <div class="summary-item">
                 <div class="label">Sold</div>
@@ -453,36 +547,58 @@ const generateHTMLContent = (data: YearlyData[], allInvestments: Investment[] = 
               </div>
             </div>
             
-            ${Object.keys(yearData.investments.investmentsByType).length > 0 ? `
+            ${
+              Object.keys(yearData.investments.investmentsByType).length > 0
+                ? `
             <div class="investment-breakdown">
-              ${Object.entries(yearData.investments.investmentsByType).map(([type, data]) => `
+              ${Object.entries(yearData.investments.investmentsByType)
+                .map(
+                  ([type, data]) => `
                 <div class="investment-type-card">
                   <div class="type">${type}</div>
-                  <div class="amount investment">${formatCurrency(data.currentValue)}</div>
-                  <div class="label">Investment: ${formatCurrency(data.investment)}</div>
-                  <div class="label ${data.profitLoss >= 0 ? 'profit' : 'loss'}">P&L: ${formatCurrency(data.profitLoss)}</div>
+                  <div class="amount investment">${formatCurrency(
+                    data.currentValue
+                  )}</div>
+                  <div class="label">Investment: ${formatCurrency(
+                    data.investment
+                  )}</div>
+                  <div class="label ${
+                    data.profitLoss >= 0 ? "profit" : "loss"
+                  }">P&L: ${formatCurrency(data.profitLoss)}</div>
                   <div class="label">${data.count} holdings</div>
                 </div>
-              `).join('')}
+              `
+                )
+                .join("")}
             </div>
-            ` : ''}
+            `
+                : ""
+            }
           </div>
-          ` : ''}
+          `
+              : ""
+          }
           
-          ${yearData.monthlyBreakdown.length > 0 ? `
+          ${
+            yearData.monthlyBreakdown.length > 0
+              ? `
           <table>
             <thead>
               <tr><th>Month</th><th>Income</th><th>Expenses</th><th>Savings</th></tr>
             </thead>
             <tbody>
-              ${yearData.monthlyBreakdown.map(m => `
+              ${yearData.monthlyBreakdown
+                .map(
+                  (m) => `
                 <tr>
                   <td>${m.month}</td>
                   <td class="income">${formatCurrency(m.income)}</td>
                   <td class="expense">${formatCurrency(m.expenses)}</td>
                   <td>${formatCurrency(m.savings)}</td>
                 </tr>
-              `).join('')}
+              `
+                )
+                .join("")}
               <tr style="font-weight: bold; background-color: #f8f9fa;">
                 <td>Total</td>
                 <td class="income">${formatCurrency(yearData.income)}</td>
@@ -491,9 +607,13 @@ const generateHTMLContent = (data: YearlyData[], allInvestments: Investment[] = 
               </tr>
             </tbody>
           </table>
-          ` : ''}
+          `
+              : ""
+          }
         </div>
-      `).join('')}
+      `
+        )
+        .join("")}
       
       <div class="footer">
         <p>End of Report</p>
