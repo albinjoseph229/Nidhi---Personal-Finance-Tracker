@@ -2,8 +2,8 @@ module.exports = function(api) {
   api.cache(true);
   return {
     presets: ['babel-preset-expo'],
-    // Add this plugins array
     plugins: [
+      // Your existing module-resolver plugin
       [
         'module-resolver',
         {
@@ -13,6 +13,8 @@ module.exports = function(api) {
           },
         },
       ],
+      // Add the reanimated plugin LAST
+      'react-native-reanimated/plugin',
     ],
   };
 };

@@ -3,18 +3,19 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-  LayoutAnimation,
   Pressable,
   RefreshControl,
   SectionList,
   StyleSheet,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
+// Import Layout from Reanimated
+import Animated, { FadeIn, FadeOut, Layout } from 'react-native-reanimated';
 
-// Import your themed components and hooks
+// ... (rest of your imports are the same)
 import { SearchBar } from '../../components/SearchBar';
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
@@ -23,22 +24,21 @@ import { useTheme } from '../../context/ThemeContext';
 import { Transaction } from '../../database';
 import { useThemeColor } from '../../hooks/use-theme-color';
 
-
-
 export default function HistoryScreen() {
+  // ... (all your existing state, hooks, and memos are correct)
   const router = useRouter();
   const { transactions, isSyncing, triggerUploadSync } = useAppData();
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const { theme } = useTheme();
 
-  // Fetch all necessary colors from the theme once
   const cardColor = useThemeColor({}, 'card');
   const textColor = useThemeColor({}, 'text');
   const secondaryTextColor = useThemeColor({}, 'tabIconDefault');
   const separatorColor = useThemeColor({}, 'background');
 
   const processedData = useMemo(() => {
+    // ... (no changes here)
     const filteredTransactions = transactions.filter(
       (tx) =>
         tx.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -87,15 +87,19 @@ export default function HistoryScreen() {
     }));
   }, [processedData, expandedSections]);
 
-  const toggleSection = (sectionTitle: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  const toggleSection = useCallback((sectionTitle: string) => {
     setExpandedSections((prev) => {
       const newSet = new Set(prev);
-      newSet.has(sectionTitle) ? newSet.delete(sectionTitle) : newSet.add(sectionTitle);
+      if (newSet.has(sectionTitle)) {
+        newSet.delete(sectionTitle);
+      } else {
+        newSet.add(sectionTitle);
+      }
       return newSet;
     });
-  };
+  }, []);
 
+  // ... (onRefresh, getCategoryIcon, formatAmount are the same)
   const onRefresh = async () => {
     await triggerUploadSync();
   };
@@ -124,45 +128,113 @@ export default function HistoryScreen() {
     }).format(amount).replace('₹', '₹ ');
   };
 
-  const renderTransactionItem = ({ item, index, section }: { item: Transaction, index: number, section: any }) => {
+  const renderTransactionItem = useCallback(({ item, index, section }: { item: Transaction, index: number, section: any }) => {
     const isLastItem = index === section.originalData.length - 1;
+    
+    // Use Animated.View with the new `layout` prop for smooth animations
     return (
-      <Pressable
-        onPress={() => {
-          const pathname = item.type === 'income' ? '/add-income' : '/add-expense';
-          router.push({ pathname, params: { uuid: item.uuid } });
-        }}
+      <Animated.View
+        // ✨ KEY CHANGE: Add the layout prop to animate layout changes.
+        // This will smoothly animate the item's position as it's added or removed.
+        layout={Layout.duration(300)}
+        entering={FadeIn.duration(300)}
+        exiting={FadeOut.duration(200)}
       >
-        <View style={[styles.item, { backgroundColor: cardColor, borderBottomColor: separatorColor }, isLastItem && styles.lastItem]}>
-          <ThemedView style={[styles.itemIcon, { backgroundColor: separatorColor }]}>
-            <Feather
-              name={getCategoryIcon(item.category)}
-              size={20}
-              color={item.type === 'income' ? '#34C759' : textColor}
-            />
-          </ThemedView>
-          <View style={styles.itemDetails}>
-            <ThemedText style={styles.itemCategory}>{item.category}</ThemedText>
-            <ThemedText style={[styles.itemDate, { color: secondaryTextColor }]}>
-              {new Date(item.date).toLocaleDateString('en-IN', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-              })}
-            </ThemedText>
-            {item.notes ? (
-              <ThemedText style={[styles.itemNotes, { color: secondaryTextColor }]} numberOfLines={1}>
-                {item.notes}
+        <Pressable
+          onPress={() => {
+            const pathname = item.type === 'income' ? '/add-income' : '/add-expense';
+            router.push({ pathname, params: { uuid: item.uuid } });
+          }}
+          style={({ pressed }) => [
+            { opacity: pressed ? 0.7 : 1 }
+          ]}
+        >
+          <View style={[
+            styles.item, 
+            { backgroundColor: cardColor, borderBottomColor: separatorColor }, 
+            isLastItem && styles.lastItem
+          ]}>
+            <ThemedView style={[styles.itemIcon, { backgroundColor: separatorColor }]}>
+              <Feather
+                name={getCategoryIcon(item.category)}
+                size={20}
+                color={item.type === 'income' ? '#34C759' : textColor}
+              />
+            </ThemedView>
+            <View style={styles.itemDetails}>
+              <ThemedText style={styles.itemCategory}>{item.category}</ThemedText>
+              <ThemedText style={[styles.itemDate, { color: secondaryTextColor }]}>
+                {new Date(item.date).toLocaleDateString('en-IN', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                })}
               </ThemedText>
-            ) : null}
+              {item.notes ? (
+                <ThemedText style={[styles.itemNotes, { color: secondaryTextColor }]} numberOfLines={1}>
+                  {item.notes}
+                </ThemedText>
+              ) : null}
+            </View>
+            <ThemedText style={[styles.itemAmount, { color: item.type === 'income' ? '#34C759' : textColor }]}>
+              {formatAmount(item.amount)}
+            </ThemedText>
           </View>
-          <ThemedText style={[styles.itemAmount, { color: item.type === 'income' ? '#34C759' : textColor }]}>
-            {formatAmount(item.amount)}
+        </Pressable>
+      </Animated.View>
+    );
+  }, [cardColor, separatorColor, secondaryTextColor, textColor, router]);
+
+  const renderSectionHeader = useCallback(({ section }: { section: any }) => {
+    // ... (no changes here)
+    const isCollapsed = !expandedSections.has(section.title);
+    
+    return (
+      <TouchableOpacity
+        style={[
+          styles.sectionHeader,
+          { backgroundColor: cardColor, borderBottomColor: separatorColor },
+          isCollapsed && styles.collapsedSectionHeader
+        ]}
+        onPress={() => toggleSection(section.title)}
+        activeOpacity={0.8}
+      >
+        <View style={styles.sectionHeaderLeft}>
+          <ThemedText style={styles.sectionTitle}>{section.title}</ThemedText>
+          <ThemedText style={[styles.sectionSubTitle, { color: secondaryTextColor }]}>
+            {section.originalData.length} transaction{section.originalData.length !== 1 ? 's' : ''}
           </ThemedText>
         </View>
-      </Pressable>
+        <View style={styles.sectionHeaderRight}>
+          <View style={styles.summaryRow}>
+            <ThemedText style={styles.summaryLabel}>Income:</ThemedText>
+            <ThemedText style={[styles.summaryValue, { color: '#34C759' }]}>
+              {formatAmount(section.totalIncome)}
+            </ThemedText>
+          </View>
+          <View style={styles.summaryRow}>
+            <ThemedText style={styles.summaryLabel}>Expenses:</ThemedText>
+            <ThemedText style={[styles.summaryValue, { color: '#FF3B30' }]}>
+              {formatAmount(section.totalExpenses)}
+            </ThemedText>
+          </View>
+          <View style={styles.summaryRow}>
+            <ThemedText style={[styles.summaryLabel, styles.summaryLabelBold]}>Savings:</ThemedText>
+            <ThemedText style={[styles.summaryValue, styles.summaryValueBold]}>
+              {formatAmount(section.savings)}
+            </ThemedText>
+          </View>
+        </View>
+        <View style={styles.chevronContainer}>
+          <Feather
+            name={expandedSections.has(section.title) ? 'chevron-up' : 'chevron-down'}
+            size={20}
+            color={secondaryTextColor}
+          />
+        </View>
+      </TouchableOpacity>
     );
-  };
+  }, [expandedSections, cardColor, separatorColor, secondaryTextColor, toggleSection]);
 
   return (
     <ThemedView style={styles.container}>
@@ -173,58 +245,18 @@ export default function HistoryScreen() {
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.uuid}
+        // ✨ OPTIONAL: The extraData prop is no longer needed.
+        // SectionList will re-render when the `sections` prop changes, which it does.
+        // extraData={expandedSections} 
         ListHeaderComponent={
           <View style={styles.searchContainer}>
             <SearchBar placeholder="Search transactions..." value={searchQuery} onChangeText={setSearchQuery} />
           </View>
         }
-        renderSectionHeader={({ section }) => {
-          // --- CHANGE 2: Conditionally apply the new style ---
-          // Check if the current section is NOT in the expanded set
-          const isCollapsed = !expandedSections.has(section.title);
-
-          return (
-            <TouchableOpacity
-              // Apply the base style, dynamic colors, and the 'collapsed' style if needed
-              style={[
-                styles.sectionHeader,
-                { backgroundColor: cardColor, borderBottomColor: separatorColor },
-                isCollapsed && styles.collapsedSectionHeader
-              ]}
-              onPress={() => toggleSection(section.title)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.sectionHeaderLeft}>
-                <ThemedText style={styles.sectionTitle}>{section.title}</ThemedText>
-                <ThemedText style={[styles.sectionSubTitle, { color: secondaryTextColor }]}>
-                  {section.originalData.length} transaction{section.originalData.length !== 1 ? 's' : ''}
-                </ThemedText>
-              </View>
-              <View style={styles.sectionHeaderRight}>
-                  <View style={styles.summaryRow}>
-                      <ThemedText style={styles.summaryLabel}>Income:</ThemedText>
-                      <ThemedText style={[styles.summaryValue, { color: '#34C759' }]}>{formatAmount(section.totalIncome)}</ThemedText>
-                  </View>
-                  <View style={styles.summaryRow}>
-                      <ThemedText style={styles.summaryLabel}>Expenses:</ThemedText>
-                      <ThemedText style={[styles.summaryValue, { color: '#FF3B30' }]}>{formatAmount(section.totalExpenses)}</ThemedText>
-                  </View>
-                  <View style={styles.summaryRow}>
-                      <ThemedText style={[styles.summaryLabel, styles.summaryLabelBold]}>Savings:</ThemedText>
-                      <ThemedText style={[styles.summaryValue, styles.summaryValueBold]}>{formatAmount(section.savings)}</ThemedText>
-                  </View>
-              </View>
-              <Feather
-                name={expandedSections.has(section.title) ? 'chevron-up' : 'chevron-down'}
-                size={20}
-                color={secondaryTextColor}
-                style={styles.chevronIcon}
-              />
-            </TouchableOpacity>
-          );
-        }}
+        renderSectionHeader={renderSectionHeader}
         renderItem={renderTransactionItem}
         ListEmptyComponent={
+          // ... (no changes here)
           <View style={styles.emptyContainer}>
             <Feather name="search" size={48} color={secondaryTextColor} style={{ opacity: 0.5 }}/>
             <ThemedText style={[styles.emptyText, { color: secondaryTextColor }]}>No Transactions Found</ThemedText>
@@ -239,23 +271,35 @@ export default function HistoryScreen() {
         refreshControl={
           <RefreshControl refreshing={isSyncing} onRefresh={onRefresh} tintColor={textColor} />
         }
+        removeClippedSubviews={false}
+        maxToRenderPerBatch={10}
+        windowSize={10}
       />
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
+  // ... (all styles remain the same)
   container: { flex: 1 },
   header: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 10 },
-  headerTitle: { fontSize: 28, fontWeight: 'bold',lineHeight: 34, },
+  headerTitle: { fontSize: 28, fontWeight: 'bold', lineHeight: 34 },
   listContentContainer: { paddingHorizontal: 20, paddingBottom: 100 },
   searchContainer: { marginBottom: 20 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderBottomWidth: 1 },
-  // --- CHANGE 1: Add a new style for collapsed sections ---
+  sectionHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    padding: 16, 
+    borderTopLeftRadius: 16, 
+    borderTopRightRadius: 16, 
+    borderBottomWidth: 1,
+    minHeight: 80,
+  },
   collapsedSectionHeader: {
-    borderRadius: 16,     // Apply radius to all corners
-    marginBottom: 16,     // Add spacing between collapsed sections
-    borderBottomWidth: 0, // Remove the bottom border line
+    borderRadius: 16,
+    marginBottom: 16,
+    borderBottomWidth: 0,
   },
   sectionHeaderLeft: { flex: 1 },
   sectionHeaderRight: { marginRight: 16 },
@@ -266,10 +310,30 @@ const styles = StyleSheet.create({
   summaryValue: { fontSize: 12, fontWeight: '500' },
   summaryLabelBold: { fontWeight: 'bold' },
   summaryValueBold: { fontWeight: 'bold' },
-  chevronIcon: {},
-  item: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
-  lastItem: { borderBottomWidth: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, marginBottom: 16 },
-  itemIcon: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  chevronContainer: {
+    padding: 4,
+  },
+  item: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    padding: 16, 
+    borderBottomWidth: 1,
+    minHeight: 72,
+  },
+  lastItem: { 
+    borderBottomWidth: 0, 
+    borderBottomLeftRadius: 16, 
+    borderBottomRightRadius: 16, 
+    marginBottom: 16 
+  },
+  itemIcon: { 
+    width: 44, 
+    height: 44, 
+    borderRadius: 22, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginRight: 16 
+  },
   itemDetails: { flex: 1, marginRight: 8 },
   itemCategory: { fontSize: 16, fontWeight: '500' },
   itemDate: { fontSize: 14, marginTop: 2 },
