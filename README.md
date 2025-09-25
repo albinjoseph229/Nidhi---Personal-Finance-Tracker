@@ -43,8 +43,6 @@ A comprehensive, privacy-first personal finance tracker powered by **React Nativ
 
 ## 📸 Screenshots
 
-Here's a sneak peek of **Nidhi** in action. The app supports a clean, consistent design in both light and dark modes.
-
 ### Light Mode
 
 <p align="center">
@@ -55,8 +53,11 @@ Here's a sneak peek of **Nidhi** in action. The app supports a clean, consistent
 
 <p align="center">
   <img src="./assets/images/screenshots/add-expense-light.jpg" alt="Add Expense Light" width="250"/>
-  <img src="./assets/images/screenshots/settings-light.jpg" alt="Settings Light" width="250"/>
+  <img src="./assets/images/screenshots/add-income-light.jpg" alt="Add Income Light" width="250"/>
+  <img src="./assets/images/screenshots/investments-light.jpg" alt="Investments Light" width="250"/>
 </p>
+
+---
 
 ### Dark Mode
 
@@ -68,6 +69,14 @@ Here's a sneak peek of **Nidhi** in action. The app supports a clean, consistent
 
 <p align="center">
   <img src="./assets/images/screenshots/add-income-dark.jpg" alt="Add Income Dark" width="250"/>
+  <img src="./assets/images/screenshots/add-investment-dark.jpg" alt="Add Investment Dark" width="250"/>
+  <img src="./assets/images/screenshots/investments-dark.jpg" alt="Investments Dark" width="250"/>
+</p>
+
+<p align="center">
+  <img src="./assets/images/screenshots/ai-report-dark.jpg" alt="AI Report Dark" width="250"/>
+  <img src="./assets/images/screenshots/settings-dark.jpg" alt="Settings Dark" width="250"/>
+  <img src="./assets/images/screenshots/add-menu-dark.jpg" alt="Add Menu Dark" width="250"/>
 </p>
 
 ---
