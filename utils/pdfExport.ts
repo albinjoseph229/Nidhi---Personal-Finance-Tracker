@@ -305,11 +305,11 @@ const generateHTMLContent = (
   );
 
   const generateChartUrl = (yearData: YearlyData) => {
-    const labels = yearData.monthlyBreakdown.map((m) =>
+    const labels = yearData.monthlyBreakdown.map((m: MonthlyData) =>
       m.month.substring(0, 3)
     );
-    const incomeData = yearData.monthlyBreakdown.map((m) => m.income);
-    const expenseData = yearData.monthlyBreakdown.map((m) => m.expenses);
+    const incomeData = yearData.monthlyBreakdown.map((m: MonthlyData) => m.income);
+    const expenseData = yearData.monthlyBreakdown.map((m: MonthlyData) => m.expenses);
 
     const chartConfig = {
       type: "bar",
@@ -385,238 +385,481 @@ const generateHTMLContent = (
       <meta charset="utf-8">
       <title>Financial Report</title>
       <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 40px; color: #333; }
-        .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #007AFF; padding-bottom: 20px; }
-        h1 { color: #007AFF; margin: 0; }
-        h2 { border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 40px; }
-        h3 { color: #555; margin-top: 30px; }
-        .summary-card { background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-        .investment-card { background-color: #e3f2fd; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        .summary-grid { display: flex; justify-content: space-around; text-align: center; flex-wrap: wrap; }
-        .summary-item { margin: 10px; }
-        .summary-item .label { font-size: 14px; color: #6c757d; }
-        .summary-item .value { font-size: 24px; font-weight: bold; }
+        body { 
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+          margin: 0; 
+          padding: 0; 
+          color: #333; 
+          line-height: 1.4;
+        }
+        
+        /* Page layout and breaks */
+        .page { 
+          min-height: 100vh; 
+          padding: 40px; 
+          box-sizing: border-box;
+        }
+        
+        .page-break { 
+          page-break-before: always; 
+          break-before: page;
+        }
+        
+        .no-page-break { 
+          page-break-inside: avoid; 
+          break-inside: avoid;
+        }
+
+        /* Header styling */
+        .header { 
+          text-align: center; 
+          margin-bottom: 40px; 
+          border-bottom: 3px solid #007AFF; 
+          padding-bottom: 20px; 
+        }
+        
+        h1 { 
+          color: #007AFF; 
+          margin: 0; 
+          font-size: 32px; 
+          font-weight: bold;
+        }
+        
+        .subtitle { 
+          font-size: 16px; 
+          color: #666; 
+          margin-top: 10px; 
+        }
+
+        h2 { 
+          border-bottom: 2px solid #007AFF; 
+          padding-bottom: 15px; 
+          margin-top: 0; 
+          margin-bottom: 30px; 
+          font-size: 24px;
+          color: #007AFF;
+        }
+        
+        h3 { 
+          color: #555; 
+          margin-top: 25px; 
+          margin-bottom: 15px;
+          font-size: 18px;
+        }
+
+        /* Card styling */
+        .summary-card { 
+          background-color: #f8f9fa; 
+          padding: 30px; 
+          border-radius: 12px; 
+          margin-bottom: 30px; 
+          border: 1px solid #e9ecef;
+        }
+        
+        .investment-card { 
+          background-color: #e3f2fd; 
+          padding: 25px; 
+          border-radius: 12px; 
+          margin-bottom: 25px; 
+          border: 1px solid #bbdefb;
+        }
+
+        /* Grid layouts */
+        .summary-grid { 
+          display: grid; 
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); 
+          gap: 20px; 
+          text-align: center; 
+        }
+        
+        .summary-item { 
+          background: white; 
+          padding: 20px; 
+          border-radius: 8px; 
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .summary-item .label { 
+          font-size: 13px; 
+          color: #6c757d; 
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .summary-item .value { 
+          font-size: 22px; 
+          font-weight: bold; 
+          margin-top: 8px;
+        }
+
+        /* Color classes */
         .income { color: #34C759; }
         .expense { color: #FF3B30; }
         .investment { color: #007AFF; }
         .profit { color: #34C759; }
         .loss { color: #FF3B30; }
-        .chart { text-align: center; margin: 30px 0; }
-        .chart img { max-width: 100%; height: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6; }
-        th { background-color: #f8f9fa; }
-        .investment-breakdown { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
-        .investment-type-card { background-color: #f8f9fa; padding: 15px; border-radius: 6px; text-align: center; }
-        .investment-type-card .type { font-weight: bold; color: #333; }
-        .investment-type-card .amount { font-size: 18px; margin: 5px 0; }
-        .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #6c757d; }
-        .two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        @media (max-width: 768px) { .two-column { grid-template-columns: 1fr; } }
+
+        /* Chart styling */
+        .chart { 
+          text-align: center; 
+          margin: 25px 0; 
+          padding: 15px;
+          background: white;
+          border-radius: 8px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .chart img { 
+          max-width: 100%; 
+          height: auto; 
+          border-radius: 4px;
+        }
+
+        /* Two column layout */
+        .two-column { 
+          display: grid; 
+          grid-template-columns: 1fr 1fr; 
+          gap: 30px; 
+          margin: 30px 0;
+        }
+
+        /* Table styling */
+        table { 
+          width: 100%; 
+          border-collapse: collapse; 
+          margin: 25px 0; 
+          background: white;
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        th, td { 
+          padding: 15px 12px; 
+          text-align: left; 
+          border-bottom: 1px solid #dee2e6; 
+        }
+        
+        th { 
+          background-color: #f8f9fa; 
+          font-weight: 600;
+          color: #495057;
+          font-size: 14px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .table-total { 
+          font-weight: bold; 
+          background-color: #f8f9fa !important; 
+        }
+
+        /* Investment breakdown */
+        .investment-breakdown { 
+          display: grid; 
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
+          gap: 20px; 
+          margin: 25px 0; 
+        }
+        
+        .investment-type-card { 
+          background-color: white; 
+          padding: 20px; 
+          border-radius: 8px; 
+          text-align: center; 
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+          border: 1px solid #e9ecef;
+        }
+        
+        .investment-type-card .type { 
+          font-weight: bold; 
+          color: #333; 
+          font-size: 16px;
+          margin-bottom: 10px;
+        }
+        
+        .investment-type-card .amount { 
+          font-size: 20px; 
+          margin: 8px 0; 
+          font-weight: 600;
+        }
+        
+        .investment-type-card .label { 
+          font-size: 13px; 
+          margin: 4px 0;
+        }
+
+        /* Year section */
+        .year-section { 
+          margin-bottom: 40px; 
+        }
+
+        /* Footer */
+        .footer { 
+          margin-top: 60px; 
+          text-align: center; 
+          font-size: 12px; 
+          color: #6c757d; 
+          border-top: 1px solid #dee2e6;
+          padding-top: 20px;
+        }
+
+        /* Print optimizations */
+        @media print {
+          .page-break { page-break-before: always; }
+          .no-page-break { page-break-inside: avoid; }
+          body { -webkit-print-color-adjust: exact; }
+        }
+        
+        @media (max-width: 768px) { 
+          .two-column { grid-template-columns: 1fr; }
+          .summary-grid { grid-template-columns: 1fr; }
+          .page { padding: 20px; }
+        }
       </style>
     </head>
     <body>
-      <div class="header">
-        <h1>Albin Joseph Financial Report</h1>
-        <p>Generated on ${currentDate}</p>
-      </div>
-      
-      <div class="summary-card">
-        <h2>Overall Financial Summary</h2>
-        <div class="summary-grid">
-          <div class="summary-item">
-            <div class="label">Total Income</div>
-            <div class="value income">${formatCurrency(totalIncome)}</div>
-          </div>
-          <div class="summary-item">
-            <div class="label">Total Expenses</div>
-            <div class="value expense">${formatCurrency(totalExpenses)}</div>
-          </div>
-          <div class="summary-item">
-            <div class="label">Net Savings</div>
-            <div class="value">${formatCurrency(totalSavings)}</div>
+      <!-- OVERALL SUMMARY PAGE -->
+      <div class="page">
+        <div class="header">
+          <h1>Financial Report</h1>
+          <p class="subtitle">Generated on ${currentDate}</p>
+        </div>
+        
+        <div class="summary-card no-page-break">
+          <h2>Overall Financial Summary</h2>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <div class="label">Total Income</div>
+              <div class="value income">${formatCurrency(totalIncome)}</div>
+            </div>
+            <div class="summary-item">
+              <div class="label">Total Expenses</div>
+              <div class="value expense">${formatCurrency(totalExpenses)}</div>
+            </div>
+            <div class="summary-item">
+              <div class="label">Net Savings</div>
+              <div class="value">${formatCurrency(totalSavings)}</div>
+            </div>
           </div>
         </div>
-      </div>
 
-      ${
-        overallInvestmentSummary.totalInvestment > 0
-          ? `
-      <div class="investment-card">
-        <h2>Overall Investment Summary</h2>
-        <div class="summary-grid">
-          <div class="summary-item">
-            <div class="label">Total Investment</div>
-            <div class="value investment">${formatCurrency(
-              overallInvestmentSummary.totalInvestment
-            )}</div>
-          </div>
-          <div class="summary-item">
-            <div class="label">Current Value</div>
-            <div class="value investment">${formatCurrency(
-              overallInvestmentSummary.currentValue
-            )}</div>
-          </div>
-          <div class="summary-item">
-            <div class="label">Total P&L</div>
-            <div class="value ${
-              overallInvestmentSummary.totalProfitLoss >= 0 ? "profit" : "loss"
-            }">${formatCurrency(overallInvestmentSummary.totalProfitLoss)}</div>
-          </div>
-          <div class="summary-item">
-            <div class="label">Active Investments</div>
-            <div class="value">${overallInvestmentSummary.activeCount}</div>
-          </div>
-          <div class="summary-item">
-            <div class="label">Sold Investments</div>
-            <div class="value">${overallInvestmentSummary.soldCount}</div>
-          </div>
-          <div class="summary-item">
-            <div class="label">Realized P&L</div>
-            <div class="value ${
-              overallInvestmentSummary.totalSoldProfit >= 0 ? "profit" : "loss"
-            }">${formatCurrency(overallInvestmentSummary.totalSoldProfit)}</div>
+        ${
+          overallInvestmentSummary.totalInvestment > 0
+            ? `
+        <div class="investment-card no-page-break">
+          <h2>Overall Investment Summary</h2>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <div class="label">Total Investment</div>
+              <div class="value investment">${formatCurrency(
+                overallInvestmentSummary.totalInvestment
+              )}</div>
+            </div>
+            <div class="summary-item">
+              <div class="label">Current Value</div>
+              <div class="value investment">${formatCurrency(
+                overallInvestmentSummary.currentValue
+              )}</div>
+            </div>
+            <div class="summary-item">
+              <div class="label">Total P&L</div>
+              <div class="value ${
+                overallInvestmentSummary.totalProfitLoss >= 0 ? "profit" : "loss"
+              }">${formatCurrency(overallInvestmentSummary.totalProfitLoss)}</div>
+            </div>
+            <div class="summary-item">
+              <div class="label">Active Investments</div>
+              <div class="value">${overallInvestmentSummary.activeCount}</div>
+            </div>
+            <div class="summary-item">
+              <div class="label">Sold Investments</div>
+              <div class="value">${overallInvestmentSummary.soldCount}</div>
+            </div>
+            <div class="summary-item">
+              <div class="label">Realized P&L</div>
+              <div class="value ${
+                overallInvestmentSummary.totalSoldProfit >= 0 ? "profit" : "loss"
+              }">${formatCurrency(overallInvestmentSummary.totalSoldProfit)}</div>
+            </div>
           </div>
         </div>
+        `
+            : ""
+        }
       </div>
-      `
-          : ""
-      }
 
+      <!-- YEARLY REPORTS - Each year starts on a new page -->
       ${data
         .map(
-          (yearData) => `
-        <div class="year-section">
-          <h2>${yearData.year} Report</h2>
-          
-          <div class="two-column">
-            <div>
-              <h3>Income vs Expenses</h3>
-              <div class="chart">
-                <img src="${generateChartUrl(yearData)}" alt="${
-            yearData.year
-          } Chart" />
-              </div>
-            </div>
+          (yearData, index) => `
+        <div class="page ${index === 0 ? 'page-break' : 'page-break'}">
+          <div class="year-section">
+            <h2>${yearData.year} Annual Report</h2>
             
+            ${yearData.monthlyBreakdown.length > 0 ? `
+            <div class="two-column">
+              <div>
+                <h3>Income vs Expenses</h3>
+                <div class="chart">
+                  <img src="${generateChartUrl(yearData)}" alt="${
+            yearData.year
+          } Financial Chart" />
+                </div>
+              </div>
+              
+              ${
+                yearData.investments.totalInvestment > 0
+                  ? `
+              <div>
+                <h3>Investment Portfolio</h3>
+                ${generateInvestmentChart(yearData)}
+              </div>
+              `
+                  : `
+              <div>
+                <h3>Summary</h3>
+                <div class="summary-card">
+                  <div class="summary-grid">
+                    <div class="summary-item">
+                      <div class="label">Income</div>
+                      <div class="value income">${formatCurrency(yearData.income)}</div>
+                    </div>
+                    <div class="summary-item">
+                      <div class="label">Expenses</div>
+                      <div class="value expense">${formatCurrency(yearData.expenses)}</div>
+                    </div>
+                    <div class="summary-item">
+                      <div class="label">Savings</div>
+                      <div class="value">${formatCurrency(yearData.savings)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              `
+              }
+            </div>
+            ` : ''}
+
             ${
               yearData.investments.totalInvestment > 0
                 ? `
-            <div>
-              <h3>Investment Portfolio</h3>
-              ${generateInvestmentChart(yearData)}
+            <div class="investment-card no-page-break">
+              <h3>${yearData.year} Investment Summary</h3>
+              <div class="summary-grid">
+                <div class="summary-item">
+                  <div class="label">Total Investment</div>
+                  <div class="value investment">${formatCurrency(
+                    yearData.investments.totalInvestment
+                  )}</div>
+                </div>
+                <div class="summary-item">
+                  <div class="label">Current Value</div>
+                  <div class="value investment">${formatCurrency(
+                    yearData.investments.currentValue
+                  )}</div>
+                </div>
+                <div class="summary-item">
+                  <div class="label">Profit/Loss</div>
+                  <div class="value ${
+                    yearData.investments.totalProfitLoss >= 0 ? "profit" : "loss"
+                  }">${formatCurrency(yearData.investments.totalProfitLoss)}</div>
+                </div>
+                <div class="summary-item">
+                  <div class="label">Active</div>
+                  <div class="value">${
+                    yearData.investments.activeInvestments
+                  }</div>
+                </div>
+                <div class="summary-item">
+                  <div class="label">Sold</div>
+                  <div class="value">${yearData.investments.soldInvestments}</div>
+                </div>
+              </div>
+              
+              ${
+                Object.keys(yearData.investments.investmentsByType).length > 0
+                  ? `
+              <div class="investment-breakdown">
+                ${Object.entries(yearData.investments.investmentsByType)
+                  .map(
+                    ([type, data]) => `
+                  <div class="investment-type-card">
+                    <div class="type">${type}</div>
+                    <div class="amount investment">${formatCurrency(
+                      data.currentValue
+                    )}</div>
+                    <div class="label">Investment: ${formatCurrency(
+                      data.investment
+                    )}</div>
+                    <div class="label ${
+                      data.profitLoss >= 0 ? "profit" : "loss"
+                    }">P&L: ${formatCurrency(data.profitLoss)}</div>
+                    <div class="label">${data.count} holdings</div>
+                  </div>
+                `
+                  )
+                  .join("")}
+              </div>
+              `
+                  : ""
+              }
             </div>
             `
-                : "<div></div>"
+                : ""
             }
-          </div>
-
-          ${
-            yearData.investments.totalInvestment > 0
-              ? `
-          <div class="investment-card">
-            <h3>${yearData.year} Investment Summary</h3>
-            <div class="summary-grid">
-              <div class="summary-item">
-                <div class="label">Total Investment</div>
-                <div class="value investment">${formatCurrency(
-                  yearData.investments.totalInvestment
-                )}</div>
-              </div>
-              <div class="summary-item">
-                <div class="label">Current Value</div>
-                <div class="value investment">${formatCurrency(
-                  yearData.investments.currentValue
-                )}</div>
-              </div>
-              <div class="summary-item">
-                <div class="label">Profit/Loss</div>
-                <div class="value ${
-                  yearData.investments.totalProfitLoss >= 0 ? "profit" : "loss"
-                }">${formatCurrency(yearData.investments.totalProfitLoss)}</div>
-              </div>
-              <div class="summary-item">
-                <div class="label">Active</div>
-                <div class="value">${
-                  yearData.investments.activeInvestments
-                }</div>
-              </div>
-              <div class="summary-item">
-                <div class="label">Sold</div>
-                <div class="value">${yearData.investments.soldInvestments}</div>
-              </div>
-            </div>
             
             ${
-              Object.keys(yearData.investments.investmentsByType).length > 0
+              yearData.monthlyBreakdown.length > 0
                 ? `
-            <div class="investment-breakdown">
-              ${Object.entries(yearData.investments.investmentsByType)
-                .map(
-                  ([type, data]) => `
-                <div class="investment-type-card">
-                  <div class="type">${type}</div>
-                  <div class="amount investment">${formatCurrency(
-                    data.currentValue
-                  )}</div>
-                  <div class="label">Investment: ${formatCurrency(
-                    data.investment
-                  )}</div>
-                  <div class="label ${
-                    data.profitLoss >= 0 ? "profit" : "loss"
-                  }">P&L: ${formatCurrency(data.profitLoss)}</div>
-                  <div class="label">${data.count} holdings</div>
-                </div>
-              `
-                )
-                .join("")}
+            <div class="no-page-break">
+              <h3>Monthly Breakdown</h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th>Income</th>
+                    <th>Expenses</th>
+                    <th>Savings</th>
+                    <th>Transactions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${yearData.monthlyBreakdown
+                    .map(
+                      (m: MonthlyData) => `
+                    <tr>
+                      <td><strong>${m.month}</strong></td>
+                      <td class="income">${formatCurrency(m.income)}</td>
+                      <td class="expense">${formatCurrency(m.expenses)}</td>
+                      <td>${formatCurrency(m.savings)}</td>
+                      <td>${m.transactionCount}</td>
+                    </tr>
+                  `
+                    )
+                    .join("")}
+                  <tr class="table-total">
+                    <td><strong>Year Total</strong></td>
+                    <td class="income"><strong>${formatCurrency(yearData.income)}</strong></td>
+                    <td class="expense"><strong>${formatCurrency(yearData.expenses)}</strong></td>
+                    <td><strong>${formatCurrency(yearData.savings)}</strong></td>
+                    <td><strong>${yearData.transactionCount}</strong></td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
             `
                 : ""
             }
           </div>
-          `
-              : ""
-          }
-          
-          ${
-            yearData.monthlyBreakdown.length > 0
-              ? `
-          <table>
-            <thead>
-              <tr><th>Month</th><th>Income</th><th>Expenses</th><th>Savings</th></tr>
-            </thead>
-            <tbody>
-              ${yearData.monthlyBreakdown
-                .map(
-                  (m) => `
-                <tr>
-                  <td>${m.month}</td>
-                  <td class="income">${formatCurrency(m.income)}</td>
-                  <td class="expense">${formatCurrency(m.expenses)}</td>
-                  <td>${formatCurrency(m.savings)}</td>
-                </tr>
-              `
-                )
-                .join("")}
-              <tr style="font-weight: bold; background-color: #f8f9fa;">
-                <td>Total</td>
-                <td class="income">${formatCurrency(yearData.income)}</td>
-                <td class="expense">${formatCurrency(yearData.expenses)}</td>
-                <td>${formatCurrency(yearData.savings)}</td>
-              </tr>
-            </tbody>
-          </table>
-          `
-              : ""
-          }
         </div>
       `
         )
         .join("")}
       
       <div class="footer">
-        <p>End of Report</p>
+        <p>End of Financial Report • Generated by Your Finance App</p>
       </div>
     </body>
     </html>

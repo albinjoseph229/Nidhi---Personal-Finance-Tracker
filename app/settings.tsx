@@ -5,12 +5,12 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Pressable,
-    StyleSheet,
-    Switch,
-    View,
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Switch,
+  View,
 } from "react-native";
 
 // Import our themed components and hooks
@@ -76,35 +76,36 @@ export default function ProfileScreen() {
   };
 
   const handleExportPdf = async () => {
-    if (transactions.length === 0) {
-      return Alert.alert("No Data", "There are no transactions to export.");
-    }
+  if (transactions.length === 0 && investments.length === 0) {
+    return Alert.alert("No Data", "There are no transactions or investments to export.");
+  }
 
-    Alert.alert(
-      "Export to PDF",
-      "This will generate a PDF file of all your transaction data. Continue?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Export",
-          onPress: async () => {
-            setIsExportingPdf(true);
-            try {
-              await generatePdfReport(transactions);
-            } catch (error) {
-              Alert.alert(
-                "Error",
-                "Failed to export PDF report. Please try again."
-              );
-              console.error("Export failed:", error);
-            } finally {
-              setIsExportingPdf(false);
-            }
-          },
+  Alert.alert(
+    "Export to PDF",
+    "This will generate a PDF file of all your financial data including transactions and investments. Continue?",
+    [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Export",
+        onPress: async () => {
+          setIsExportingPdf(true);
+          try {
+            // Pass both transactions AND investments to the PDF generator
+            await generatePdfReport(transactions, investments);
+          } catch (error) {
+            Alert.alert(
+              "Error",
+              "Failed to export PDF report. Please try again."
+            );
+            console.error("Export failed:", error);
+          } finally {
+            setIsExportingPdf(false);
+          }
         },
-      ]
-    );
-  };
+      },
+    ]
+  );
+};
 
   const handleFullSync = async () => {
     Alert.alert(
