@@ -8,8 +8,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://nidhi-ten.vercel.app",
-        "EXPO_PUBLIC_CLIENT_API_KEY": "this_is_albins_app"
+        "EXPO_PUBLIC_BACKEND_URL": "https://nidhi-personal-finance-tracker.vercel.app/",
+        "EXPO_PUBLIC_CLIENT_API_KEY": "sarunkuttan"
       }
     },
     "preview": {
@@ -18,15 +18,15 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://nidhi-ten.vercel.app",
-        "EXPO_PUBLIC_CLIENT_API_KEY": "this_is_albins_app"
+        "EXPO_PUBLIC_BACKEND_URL": "https://nidhi-personal-finance-tracker.vercel.app/",
+        "EXPO_PUBLIC_CLIENT_API_KEY": "sarunkuttan"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://nidhi-ten.vercel.app",
-        "EXPO_PUBLIC_CLIENT_API_KEY": "this_is_albins_app"
+        "EXPO_PUBLIC_BACKEND_URL": "https://nidhi-personal-finance-tracker.vercel.app/",
+        "EXPO_PUBLIC_CLIENT_API_KEY": "sarunkuttan"
       }
     }
   },
