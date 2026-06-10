@@ -8,17 +8,17 @@ import { Colors, type Theme } from '../constants/theme';
 import { AppProvider } from '../context/AppContext';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
+import SignInScreen from './sign-in';
 
 function AppContent() {
-  const { isAppLockEnabled, isAuthenticated } = useAuth();
+  const { isAppLockEnabled, isAuthenticated, session, isAuthLoading } = useAuth();
   const { theme, isLoading } = useTheme();
   
-  // Ensure theme is valid, fallback to light
   const currentTheme: Theme = theme === 'dark' ? 'dark' : 'light';
   const backgroundColor = Colors[currentTheme].background;
   
-  // Show loading screen while theme is being loaded
-  if (isLoading) {
+  // Show loading screen while auth/theme is loading
+  if (isLoading || isAuthLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer, { backgroundColor }]}>
         <StatusBar style={currentTheme === 'dark' ? 'light' : 'dark'} backgroundColor={backgroundColor} />
@@ -26,7 +26,18 @@ function AppContent() {
       </View>
     );
   }
+
+  // Auth gate: no Supabase session → show sign-in
+  if (!session) {
+    return (
+      <View style={[styles.container, { backgroundColor }]}>
+        <StatusBar style={currentTheme === 'dark' ? 'light' : 'dark'} backgroundColor={backgroundColor} />
+        <SignInScreen />
+      </View>
+    );
+  }
   
+  // Biometric lock gate
   if (isAppLockEnabled && !isAuthenticated) {
     return (
       <View style={[styles.container, { backgroundColor }]}>
@@ -36,7 +47,6 @@ function AppContent() {
     );
   }
   
-  // Screen options that update with theme
   const screenOptions = {
     contentStyle: { backgroundColor },
     headerStyle: { backgroundColor },
@@ -70,14 +80,14 @@ function AppContent() {
               contentStyle: { backgroundColor }
             }} 
           />
-          
-          {/* Modal screens with different animations */}
           <Stack.Screen name="add-expense" options={modalOptionsBottom} />
           <Stack.Screen name="add-income" options={modalOptionsBottom} />
           <Stack.Screen name="add-investment" options={modalOptionsBottom} />
           <Stack.Screen name="set-budget" options={modalOptionsBottom} />
           <Stack.Screen name="financial-report" options={modalOptionsRight} />
           <Stack.Screen name="settings" options={modalOptionsRight} />
+          <Stack.Screen name="ai-settings" options={modalOptionsRight} />
+          <Stack.Screen name="sign-in" options={{ headerShown: false }} />
         </Stack>
       </View>
     </SafeAreaProvider>
@@ -97,11 +107,11 @@ const styles = StyleSheet.create({
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <AppProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <AppProvider>
           <AppContent />
-        </AuthProvider>
-      </AppProvider>
+        </AppProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

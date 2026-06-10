@@ -1,21 +1,18 @@
-// In utils/geminiApi.ts
+// utils/geminiApi.ts
+// Multi-provider AI report generation (BYOK — Bring Your Own Key)
+// Supports Google Gemini and OpenAI ChatGPT
+
 import { Investment, Transaction } from "../database";
+import { getAIKey, getAIProvider } from "../lib/aiKeyStore";
 
-// --- REMOVED: Direct API access ---
-// import axios from "axios";
-// const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-// --- NEW: Backend URL configuration ---
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
-
-// Enhanced structure for more comprehensive reports including investments
+// Enhanced structure for comprehensive reports including investments
 export interface StructuredReport {
   title: string;
   summary: string;
   insights: string[];
   tips: string[];
   financialHealth?: {
-    score: number; // 1-100
+    score: number;
     status: 'Poor' | 'Fair' | 'Good' | 'Excellent';
     primaryConcerns: string[];
   };
@@ -23,7 +20,7 @@ export interface StructuredReport {
     totalIncome: number;
     totalExpenses: number;
     netSavings: number;
-    savingsRate: number; // percentage
+    savingsRate: number;
     topSpendingCategory: string;
   };
   investmentMetrics?: {
@@ -35,30 +32,133 @@ export interface StructuredReport {
     soldInvestments: number;
     bestPerformingType: string;
     worstPerformingType: string;
-    portfolioDiversification: number; // 1-100 score
+    portfolioDiversification: number;
   };
   investmentInsights?: string[];
   investmentTips?: string[];
 }
 
+// --- Direct API calls (no server proxy needed) ---
+
+const callGeminiDirect = async (prompt: string, apiKey: string): Promise<any> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.3,
+            topK: 40,
+            topP: 0.95,
+          },
+        }),
+        signal: controller.signal,
+      }
+    );
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      if (response.status === 400) throw new Error("Invalid API key or request. Please check your Gemini API key.");
+      if (response.status === 403) throw new Error("API key access denied. Please check your Gemini API key permissions.");
+      if (response.status === 429) throw new Error("Rate limit exceeded. Please try again later.");
+      throw new Error(errorData?.error?.message || `Gemini API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error("The AI response was blocked or empty. Try again.");
+    }
+
+    return JSON.parse(data.candidates[0].content.parts[0].text);
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error("Request timed out. Please try again.");
+    }
+    throw error;
+  }
+};
+
+const callChatGPTDirect = async (prompt: string, apiKey: string): Promise<any> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      if (response.status === 401) throw new Error("Invalid API key. Please check your OpenAI API key.");
+      if (response.status === 429) throw new Error("Rate limit exceeded. Please try again later or check your OpenAI billing.");
+      if (response.status === 402) throw new Error("Insufficient OpenAI credits. Please top up your account.");
+      throw new Error(errorData?.error?.message || `OpenAI API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error("The AI response was empty. Try again.");
+    }
+
+    return JSON.parse(data.choices[0].message.content);
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error("Request timed out. Please try again.");
+    }
+    throw error;
+  }
+};
+
+// --- Main report generation function ---
+
 export const generateReportWithGemini = async (
   transactions: Transaction[],
   investments: Investment[] = []
 ): Promise<StructuredReport> => {
-  if (!BACKEND_URL) {
-    throw new Error("Backend URL is not defined. Please add EXPO_PUBLIC_BACKEND_URL to your .env file.");
+  // Get user's AI configuration
+  const provider = await getAIProvider();
+  if (!provider) {
+    throw new Error("No AI provider configured. Please go to Settings → AI Configuration to set up your API key.");
   }
 
-  // Calculate basic transaction metrics
+  const apiKey = await getAIKey(provider);
+  if (!apiKey) {
+    throw new Error(`No API key found for ${provider === 'gemini' ? 'Google Gemini' : 'OpenAI ChatGPT'}. Please add your key in Settings → AI Configuration.`);
+  }
+
+  // Calculate metrics
   const income = transactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
-  
+
   const expenses = transactions
     .filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  // Group expenses by category
   const expensesByCategory = transactions
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => {
@@ -67,9 +167,9 @@ export const generateReportWithGemini = async (
     }, {} as Record<string, number>);
 
   const topCategory = Object.entries(expensesByCategory)
-    .sort(([,a], [,b]) => b - a)[0]?.[0] || 'Unknown';
+    .sort(([, a], [, b]) => b - a)[0]?.[0] || 'Unknown';
 
-  // Calculate investment metrics
+  // Investment metrics
   let totalInvestment = 0;
   let currentValue = 0;
   let totalProfitLoss = 0;
@@ -86,13 +186,9 @@ export const generateReportWithGemini = async (
     currentValue += current;
     totalProfitLoss += profitLoss;
 
-    if (inv.status === 'sold') {
-      soldCount++;
-    } else {
-      activeCount++;
-    }
+    if (inv.status === 'sold') soldCount++;
+    else activeCount++;
 
-    // Group by type
     if (!investmentsByType[inv.type]) {
       investmentsByType[inv.type] = { investment: 0, currentValue: 0, profitLoss: 0, count: 0 };
     }
@@ -103,9 +199,8 @@ export const generateReportWithGemini = async (
   });
 
   const profitLossPercentage = totalInvestment > 0 ? (totalProfitLoss / totalInvestment) * 100 : 0;
-  const portfolioDiversification = Object.keys(investmentsByType).length * 25; // Simple diversification score
+  const portfolioDiversification = Object.keys(investmentsByType).length * 25;
 
-  // Find best and worst performing investment types
   const typePerformances = Object.entries(investmentsByType)
     .map(([type, data]) => ({ type, percentage: data.investment > 0 ? (data.profitLoss / data.investment) * 100 : 0 }))
     .sort((a, b) => b.percentage - a.percentage);
@@ -142,21 +237,21 @@ export const generateReportWithGemini = async (
     Your response MUST be a valid JSON object with this exact structure:
     {
       "title": "Comprehensive Financial & Investment Report",
-      "summary": "A 3-4 sentence overview covering both cash flow and investment performance. Highlight the overall financial picture including net worth progress.",
+      "summary": "A 3-4 sentence overview covering both cash flow and investment performance.",
       "insights": [
-        "Primary insight about spending patterns with specific amounts and categories",
-        "Secondary insight about investment performance, diversification, or portfolio allocation",
-        "Third insight about financial habits, seasonal patterns, or risk management"
+        "Primary insight about spending patterns",
+        "Secondary insight about investment performance",
+        "Third insight about financial habits"
       ],
       "tips": [
-        "Most impactful cash flow optimization tip based on spending patterns",
-        "Investment-focused tip addressing portfolio performance or diversification",
-        "Long-term wealth building tip combining both savings and investment strategies"
+        "Most impactful cash flow optimization tip",
+        "Investment-focused tip",
+        "Long-term wealth building tip"
       ],
       "financialHealth": {
         "score": 75,
         "status": "Good",
-        "primaryConcerns": ["List 1-2 main areas needing attention considering both cash flow and investments"]
+        "primaryConcerns": ["List 1-2 main areas needing attention"]
       },
       "keyMetrics": {
         "totalIncome": ${income},
@@ -177,24 +272,21 @@ export const generateReportWithGemini = async (
         "portfolioDiversification": ${Math.min(100, portfolioDiversification)}
       },
       "investmentInsights": [
-        "Insight about portfolio performance and risk assessment",
-        "Insight about asset allocation and diversification effectiveness",
-        "Insight about investment timing or market positioning if relevant"
+        "Insight about portfolio performance",
+        "Insight about diversification",
+        "Insight about investment timing"
       ],
       "investmentTips": [
-        "Specific tip for improving portfolio performance or reducing risk",
-        "Diversification or rebalancing recommendation based on current allocation",
-        "Long-term investment strategy tip aligned with Indian market conditions"
+        "Tip for improving portfolio",
+        "Diversification recommendation",
+        "Long-term strategy tip"
       ]
     }
 
     Guidelines:
-    - Financial Health Score: Consider cash flow, savings rate, investment returns, and risk diversification
-    - For investments: Focus on diversification, risk management, and long-term growth potential
-    - Provide actionable advice specific to Indian financial markets and tax implications
-    - If no investments exist, focus investment insights on getting started with investing
     - Use Indian Rupee (₹) formatting and consider Indian investment options (PPF, ELSS, etc.)
-    - Balance encouragement with realistic assessments of financial health
+    - Provide actionable advice specific to Indian financial markets
+    - Balance encouragement with realistic assessments
 
     Transaction Data:
     ---
@@ -208,32 +300,13 @@ export const generateReportWithGemini = async (
   `;
 
   try {
-    // --- MODIFIED: Call secure backend instead of direct Gemini API ---
-    const response = await fetch(`${BACKEND_URL}/api/gemini`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown server error' }));
-      throw new Error(errorData.error || `Server returned status ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (!data.candidates || data.candidates.length === 0) {
-      throw new Error("The response from the AI was blocked or empty.");
-    }
-
-    const reportJsonString = data.candidates[0].content.parts[0].text;
     let reportObject: StructuredReport;
-    
-    try {
-      reportObject = JSON.parse(reportJsonString);
-    } catch (parseError) {
-      console.error("Failed to parse AI response as JSON:", reportJsonString);
-      throw new Error("The AI response was not in the expected JSON format.");
+
+    // Route to the correct provider
+    if (provider === 'gemini') {
+      reportObject = await callGeminiDirect(prompt, apiKey);
+    } else {
+      reportObject = await callChatGPTDirect(prompt, apiKey);
     }
 
     // Validate required fields
@@ -241,11 +314,11 @@ export const generateReportWithGemini = async (
       throw new Error("Received an incomplete report from the API. Missing required fields.");
     }
 
-    // Ensure minimum content requirements
+    // Ensure minimum content
     if (reportObject.insights.length === 0) {
       reportObject.insights = ["Your transaction data shows regular financial activity that we're analyzing."];
     }
-    
+
     if (reportObject.tips.length === 0) {
       reportObject.tips = [
         "Track your daily expenses to identify saving opportunities.",
@@ -253,12 +326,12 @@ export const generateReportWithGemini = async (
       ];
     }
 
-    // Fallback for financial health if not provided
+    // Fallback for financial health
     if (!reportObject.financialHealth) {
       const savingsRate = income > 0 ? ((income - expenses) / income * 100) : 0;
       const investmentReturn = profitLossPercentage;
       const baseScore = Math.max(10, Math.min(90, 50 + savingsRate * 0.5 + investmentReturn * 0.3));
-      
+
       reportObject.financialHealth = {
         score: Math.round(baseScore),
         status: baseScore > 80 ? 'Excellent' : baseScore > 60 ? 'Good' : baseScore > 40 ? 'Fair' : 'Poor',
@@ -266,7 +339,7 @@ export const generateReportWithGemini = async (
       };
     }
 
-    // Fallback for key metrics if not provided
+    // Fallback for key metrics
     if (!reportObject.keyMetrics) {
       reportObject.keyMetrics = {
         totalIncome: income,
@@ -277,7 +350,7 @@ export const generateReportWithGemini = async (
       };
     }
 
-    // Fallback for investment metrics if not provided
+    // Fallback for investment metrics
     if (!reportObject.investmentMetrics && investments.length > 0) {
       reportObject.investmentMetrics = {
         totalInvestment,
@@ -308,13 +381,24 @@ export const generateReportWithGemini = async (
         ];
       }
     }
-    
+
     return reportObject;
 
   } catch (error) {
-    console.error("Gemini API Error via backend:", error);
-    
-    // Enhanced fallback report including investments
+    console.error(`AI Report Error (${provider}):`, error);
+
+    // If it's a user-facing error (API key, rate limit), re-throw it
+    if (error instanceof Error && (
+      error.message.includes('API key') ||
+      error.message.includes('Rate limit') ||
+      error.message.includes('credits') ||
+      error.message.includes('No AI provider') ||
+      error.message.includes('No API key')
+    )) {
+      throw error;
+    }
+
+    // Fallback report for other errors
     return {
       title: "Financial Summary Report",
       summary: `Based on your data: ₹${income.toFixed(2)} income, ₹${expenses.toFixed(2)} expenses (${income >= expenses ? 'savings' : 'deficit'} of ₹${Math.abs(income - expenses).toFixed(2)}), and ₹${totalInvestment.toFixed(2)} in investments ${totalInvestment > 0 ? `with ${profitLossPercentage.toFixed(1)}% returns` : ''}.`,

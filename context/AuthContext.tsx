@@ -1,11 +1,26 @@
-// In context/AuthContext.tsx
+// context/AuthContext.tsx
+// Supabase Auth + Biometric Lock
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Session, User } from '@supabase/supabase-js';
 import * as LocalAuthentication from 'expo-local-authentication';
+import * as WebBrowser from 'expo-web-browser';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
+import { supabase } from '../lib/supabase';
+
+// Ensure web browser auth sessions are dismissed properly
+WebBrowser.maybeCompleteAuthSession();
 
 interface AuthContextType {
+  // Supabase Auth
+  session: Session | null;
+  user: User | null;
+  isAuthLoading: boolean;
+  signInWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUpWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
+  signOut: () => Promise<void>;
+  // Biometric Lock (kept from original)
   isAppLockEnabled: boolean;
   isAuthenticated: boolean;
   authenticate: () => Promise<void>;
@@ -14,21 +29,43 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// A simple in-memory flag to prevent re-authentication on hot-reloads
+// In-memory flag to prevent re-authentication on hot-reloads
 let sessionAuthenticated = false;
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  // Supabase Auth state
+  const [session, setSession] = useState<Session | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  // Biometric Lock state (kept from original)
   const [isAppLockEnabled, setIsAppLockEnabled] = useState(false);
-  // isAuthenticated is true if the user has successfully unlocked the app in the current session
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Load the app lock setting from storage when the app starts
+  // Listen to Supabase auth state changes
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsAuthLoading(false);
+    });
+
+    // Listen for auth changes (sign in, sign out, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+        setIsAuthLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Load biometric lock setting
   useEffect(() => {
     const loadSettings = async () => {
       const appLockSetting = await AsyncStorage.getItem('isAppLockEnabled');
       const isEnabled = appLockSetting === 'true';
       setIsAppLockEnabled(isEnabled);
-      // If the lock is disabled, the user is considered authenticated by default
       if (!isEnabled) {
         setIsAuthenticated(true);
         sessionAuthenticated = true;
@@ -36,14 +73,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
     loadSettings();
   }, []);
-  
-  // This effect handles re-locking the app when it comes back from the background
+
+  // Re-lock app when going to background
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'background' || nextAppState === 'inactive') {
-        // When app goes to background, reset the session authentication flag
         sessionAuthenticated = false;
-        if(isAppLockEnabled) {
+        if (isAppLockEnabled) {
           setIsAuthenticated(false);
         }
       }
@@ -51,17 +87,64 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.remove();
   }, [isAppLockEnabled]);
 
+  // Also handle Supabase token refresh when app comes to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        supabase.auth.startAutoRefresh();
+      } else {
+        supabase.auth.stopAutoRefresh();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
-  // Function to trigger the biometric prompt
+  // --- Auth Methods ---
+
+  const signInWithEmail = async (
+    email: string,
+    password: string
+  ): Promise<{ error: string | null }> => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) {
+      return { error: error.message };
+    }
+    return { error: null };
+  };
+
+  const signUpWithEmail = async (
+    email: string,
+    password: string
+  ): Promise<{ error: string | null }> => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+    if (error) {
+      return { error: error.message };
+    }
+    return { error: null };
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+  };
+
+  // --- Biometric Lock Methods (unchanged) ---
+
   const authenticate = async () => {
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
     const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
-    
+
     if (hasHardware && supportedTypes.length > 0) {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Authenticate to access Nidhi',
       });
-      
+
       if (result.success) {
         setIsAuthenticated(true);
         sessionAuthenticated = true;
@@ -69,21 +152,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Function to enable or disable the app lock feature
   const toggleAppLock = async () => {
     const newValue = !isAppLockEnabled;
-    // If enabling, require authentication first
     if (newValue) {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Confirm to enable App Lock',
       });
       if (!result.success) {
-        return; // User failed to authenticate, do not enable
+        return;
       }
     }
     await AsyncStorage.setItem('isAppLockEnabled', String(newValue));
     setIsAppLockEnabled(newValue);
-    // If disabling the lock, the user should be considered authenticated
     if (!newValue) {
       setIsAuthenticated(true);
       sessionAuthenticated = true;
@@ -91,6 +171,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const value: AuthContextType = {
+    // Supabase Auth
+    session,
+    user: session?.user ?? null,
+    isAuthLoading,
+    signInWithEmail,
+    signUpWithEmail,
+    signOut,
+    // Biometric Lock
     isAppLockEnabled,
     isAuthenticated: isAuthenticated || sessionAuthenticated,
     authenticate,

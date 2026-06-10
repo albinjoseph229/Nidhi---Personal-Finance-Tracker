@@ -8,8 +8,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://nidhi-personal-finance-tracker.vercel.app/",
-        "EXPO_PUBLIC_CLIENT_API_KEY": "sarunkuttan"
+        "EXPO_PUBLIC_SUPABASE_URL": "${secrets.EXPO_PUBLIC_SUPABASE_URL}",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "${secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY}"
       }
     },
     "preview": {
@@ -18,15 +18,15 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://nidhi-personal-finance-tracker.vercel.app/",
-        "EXPO_PUBLIC_CLIENT_API_KEY": "sarunkuttan"
+        "EXPO_PUBLIC_SUPABASE_URL": "${secrets.EXPO_PUBLIC_SUPABASE_URL}",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "${secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY}"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://nidhi-personal-finance-tracker.vercel.app/",
-        "EXPO_PUBLIC_CLIENT_API_KEY": "sarunkuttan"
+        "EXPO_PUBLIC_SUPABASE_URL": "${secrets.EXPO_PUBLIC_SUPABASE_URL}",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "${secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY}"
       }
     }
   },

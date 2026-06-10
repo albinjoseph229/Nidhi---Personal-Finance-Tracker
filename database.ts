@@ -1,16 +1,13 @@
+// database.ts
+// Offline-first database layer with Supabase cloud sync
+// Local operations use expo-sqlite, sync uses Supabase client
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SQLite from "expo-sqlite";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
-import { formatDateForSheets, parseAndNormalizeToIST } from "./utils/dateUtils";
-
-// --- REMOVED: Direct Google Sheets API configuration ---
-// const API_KEY = process.env.GOOGLE_SHEETS_API_KEY;
-// const API_URL = process.env.GOOGLE_SHEETS_API_URL;
-// if (!API_KEY || !API_URL) { ... }
-
-// --- NEW: Backend URL configuration ---
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+import { supabase } from "./lib/supabase";
+import { parseAndNormalizeToIST } from "./utils/dateUtils";
 
 const db = SQLite.openDatabaseSync("expenses.db");
 
@@ -22,87 +19,33 @@ const queueUnsyncedUpload = () => {
   if (uploadTimeout) {
     clearTimeout(uploadTimeout);
   }
-  
+
   uploadTimeout = setTimeout(() => {
     if (isUploading) return;
     isUploading = true;
-    
-    Promise.all([
-      uploadUnsyncedTransactions(),
-      uploadUnsyncedInvestments()
-    ])
-      .catch(err => console.error("Background sync failed:", err))
-      .finally(() => {
+
+    // Get user ID from Supabase session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.user?.id) {
+        console.log("No authenticated session, skipping background sync");
         isUploading = false;
-      });
+        return;
+      }
+
+      const userId = session.user.id;
+      Promise.all([
+        uploadUnsyncedTransactions(userId),
+        uploadUnsyncedInvestments(userId),
+      ])
+        .catch((err) => console.error("Background sync failed:", err))
+        .finally(() => {
+          isUploading = false;
+        });
+    });
   }, 2000);
 };
 
-// --- NEW: Secure API communication function ---
-export async function callSheetsApi(method: 'GET' | 'POST', params: any): Promise<any> {
-  if (!BACKEND_URL) {
-    console.error('BACKEND_URL is missing. Current value:', BACKEND_URL);
-    throw new Error("Backend URL is not configured in .env file. Please set EXPO_PUBLIC_BACKEND_URL");
-  }
-
-  const CLIENT_API_KEY = process.env.EXPO_PUBLIC_CLIENT_API_KEY;
-  console.log('CLIENT_API_KEY loaded:', CLIENT_API_KEY ? `${CLIENT_API_KEY.substring(0, 8)}...` : 'undefined');
-  if (!CLIENT_API_KEY) {
-    throw new Error("Client API key is not configured. Please set EXPO_PUBLIC_CLIENT_API_KEY in .env file");
-  }
-
-  const url = `${BACKEND_URL}/api/sheets${params.queryString || ''}`;
-  console.log(`Calling backend API: ${method} ${url}`);
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-  try {
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': CLIENT_API_KEY,
-      },
-      ...(method === 'POST' && { body: JSON.stringify(params) }),
-      signal: controller.signal, // ✅ attach AbortController
-    });
-
-    clearTimeout(timeoutId);
-
-    console.log(`Response status: ${response.status}`);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('API Error Response:', errorText);
-
-      let errorData;
-      try {
-        errorData = JSON.parse(errorText);
-      } catch {
-        errorData = { error: `Server error: ${response.status} ${response.statusText}` };
-      }
-
-      throw new Error(errorData.error || `API call failed with status ${response.status}: ${errorText}`);
-    }
-
-    const result = await response.json();
-    console.log('API call successful');
-    return result;
-
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
-      throw new Error("Network timeout - request took longer than 10 seconds");
-    }
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      console.error('Network error - cannot reach backend:', error.message);
-      throw new Error(`Network error: Cannot reach backend at ${BACKEND_URL}. Check your internet connection and backend URL.`);
-    }
-    console.error('API call error:', error);
-    throw error;
-  }
-}
-
+// --- INTERFACES ---
 
 export interface Transaction {
   id?: number;
@@ -135,9 +78,11 @@ export interface Investment {
   isDeleted?: 0 | 1;
 }
 
+// --- DATABASE INITIALIZATION ---
+
 export const init = () => {
   console.log("Initializing database...");
-  
+
   // Create transactions table
   db.execSync(
     `CREATE TABLE IF NOT EXISTS transactions (
@@ -152,7 +97,7 @@ export const init = () => {
       isDeleted INTEGER NOT NULL DEFAULT 0
     );`
   );
-  
+
   // Create budgets table
   db.execSync(
     `CREATE TABLE IF NOT EXISTS budgets (
@@ -182,17 +127,17 @@ export const init = () => {
   db.execSync(`CREATE INDEX IF NOT EXISTS idx_transactions_uuid ON transactions(uuid);`);
   db.execSync(`CREATE INDEX IF NOT EXISTS idx_transactions_synced ON transactions(isSynced);`);
   db.execSync(`CREATE INDEX IF NOT EXISTS idx_transactions_deleted ON transactions(isDeleted);`);
-  
+
   db.execSync(`CREATE INDEX IF NOT EXISTS idx_investments_uuid ON investments(uuid);`);
   db.execSync(`CREATE INDEX IF NOT EXISTS idx_investments_synced ON investments(isSynced);`);
   db.execSync(`CREATE INDEX IF NOT EXISTS idx_investments_deleted ON investments(isDeleted);`);
-  
+
   // Migration for isDeleted column in transactions
   try {
     const result = db.getFirstSync(
       `SELECT count(*) as count FROM pragma_table_info('transactions') WHERE name='isDeleted';`
     ) as { count: number };
-    
+
     if (result && result.count === 0) {
       console.log("Adding isDeleted column to transactions...");
       db.execSync(`ALTER TABLE transactions ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0;`);
@@ -207,15 +152,15 @@ export const init = () => {
     const result = db.getFirstSync(
       `SELECT count(*) as count FROM pragma_table_info('transactions') WHERE name='uuid';`
     ) as { count: number };
-    
+
     if (result && result.count === 0) {
       console.log("Adding uuid column and generating UUIDs for transactions...");
       db.execSync(`ALTER TABLE transactions ADD COLUMN uuid TEXT UNIQUE;`);
-      
+
       const existingTxs = db.getAllSync(
         `SELECT id FROM transactions WHERE uuid IS NULL;`
       ) as { id: number }[];
-      
+
       for (const tx of existingTxs) {
         db.runSync(`UPDATE transactions SET uuid = ? WHERE id = ?;`, [uuidv4(), tx.id]);
       }
@@ -228,7 +173,8 @@ export const init = () => {
   console.log("Database initialized successfully");
 };
 
-// --- TRANSACTION FUNCTIONS (unchanged) ---
+// --- LOCAL TRANSACTION FUNCTIONS ---
+
 export const addTransaction = async (
   txData: Omit<Transaction, "isSynced" | "id" | "uuid">
 ): Promise<void> => {
@@ -292,7 +238,8 @@ export const deleteTransaction = async (uuid: string): Promise<void> => {
   }
 };
 
-// --- BUDGET FUNCTIONS ---
+// --- LOCAL BUDGET FUNCTIONS ---
+
 export const getAllBudgets = async (): Promise<Budget[]> => {
   try {
     return await db.getAllAsync<Budget>(`SELECT * FROM budgets;`);
@@ -315,29 +262,43 @@ export const getBudgetForMonth = async (monthYear: string): Promise<Budget | nul
   }
 };
 
-// --- MODIFIED: Budget function now uses secure backend ---
 export const setBudgetForMonth = async (budget: Budget): Promise<void> => {
   try {
     await db.runAsync(
       `INSERT OR REPLACE INTO budgets (monthYear, amount) VALUES (?, ?);`,
       [budget.monthYear, budget.amount]
     );
-    
-    // Background sync budget via secure backend
-    callSheetsApi('POST', {
-      action: "setBudget",
-      data: { MonthYear: budget.monthYear, BudgetAmount: budget.amount },
-    })
-    .then(() => console.log(`Budget for ${budget.monthYear} synced successfully`))
-    .catch((error) => console.error("Background budget sync failed:", error));
-    
+
+    // Background sync budget to Supabase
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.user?.id) return;
+
+      supabase
+        .from('budgets')
+        .upsert(
+          {
+            user_id: session.user.id,
+            month_year: budget.monthYear,
+            amount: budget.amount,
+          },
+          { onConflict: 'user_id,month_year' }
+        )
+        .then(({ error }) => {
+          if (error) {
+            console.error("Background budget sync failed:", error.message);
+          } else {
+            console.log(`Budget for ${budget.monthYear} synced successfully`);
+          }
+        });
+    });
   } catch (error) {
     console.error("Failed to set budget:", error);
     throw error;
   }
 };
 
-// --- INVESTMENT FUNCTIONS (unchanged) ---
+// --- LOCAL INVESTMENT FUNCTIONS ---
+
 export const addInvestment = async (invData: Omit<Investment, "isSynced" | "uuid">): Promise<void> => {
   const newUuid = uuidv4();
   const normalizedPurchaseDate = parseAndNormalizeToIST(invData.purchaseDate);
@@ -396,62 +357,72 @@ export const getAllInvestments = async (): Promise<Investment[]> => {
   }
 };
 
-// --- MODIFIED: Upload functions now use secure backend ---
-export const uploadUnsyncedTransactions = async (): Promise<void> => {
+// --- SUPABASE SYNC FUNCTIONS ---
+
+export const uploadUnsyncedTransactions = async (userId: string): Promise<void> => {
   try {
     const unsyncedTxs = await db.getAllAsync<Transaction>(
       `SELECT * FROM transactions WHERE isSynced = 0;`
     );
-    
+
     if (unsyncedTxs.length === 0) {
       console.log("No unsynced transactions to upload");
       return;
     }
-    
-    console.log(`Uploading ${unsyncedTxs.length} unsynced transactions...`);
+
+    console.log(`Uploading ${unsyncedTxs.length} unsynced transactions to Supabase...`);
 
     for (const tx of unsyncedTxs) {
       try {
-        let action: string;
-        let payloadData: any;
-
         if (tx.isDeleted) {
-          action = "deleteTransaction";
-          payloadData = { uuid: tx.uuid };
-        } else {
-          action = "addTransaction";
-          payloadData = {
-            uuid: tx.uuid,
-            date: formatDateForSheets(tx.date),
-            category: tx.category,
-            amount: tx.amount,
-            notes: tx.notes,
-            type: tx.type,
-          };
-        }
+          // Delete from Supabase
+          const { error } = await supabase
+            .from('transactions')
+            .delete()
+            .eq('id', tx.uuid);
 
-        console.log(`Syncing ${action} for UUID: ${tx.uuid}`);
-        
-        await callSheetsApi('POST', { action, data: payloadData });
+          if (error) {
+            console.error(`Failed to delete transaction ${tx.uuid} from Supabase:`, error.message);
+            continue;
+          }
 
-        // Handle successful sync
-        if (tx.isDeleted) {
+          // Permanently remove locally after successful cloud delete
           await db.runAsync(`DELETE FROM transactions WHERE uuid = ?;`, [tx.uuid]);
           console.log(`Permanently deleted transaction ${tx.uuid} after sync`);
         } else {
+          // Upsert to Supabase
+          const { error } = await supabase
+            .from('transactions')
+            .upsert(
+              {
+                id: tx.uuid,
+                user_id: userId,
+                type: tx.type,
+                amount: tx.amount,
+                category: tx.category,
+                date: tx.date,
+                notes: tx.notes || '',
+              },
+              { onConflict: 'id' }
+            );
+
+          if (error) {
+            console.error(`Failed to upsert transaction ${tx.uuid}:`, error.message);
+            continue;
+          }
+
+          // Mark as synced locally
           await db.runAsync(`UPDATE transactions SET isSynced = 1 WHERE uuid = ?;`, [tx.uuid]);
           console.log(`Successfully synced transaction ${tx.uuid}`);
         }
-        
       } catch (error) {
         console.error(`Failed to sync transaction ${tx.uuid}:`, error);
-        
+
         // Check for network errors
-        if (error instanceof Error && (error.message.includes('network') || error.message.includes('timeout'))) {
+        if (error instanceof Error && (error.message.includes('network') || error.message.includes('timeout') || error.message.includes('fetch'))) {
           console.log("Network error - will retry later");
-          break; // Stop trying other transactions if network is down
+          break;
         }
-        // Continue with other transactions for non-network errors
       }
     }
   } catch (error) {
@@ -460,79 +431,70 @@ export const uploadUnsyncedTransactions = async (): Promise<void> => {
   }
 };
 
-// In database.ts
-
-export const uploadUnsyncedInvestments = async (): Promise<void> => {
+export const uploadUnsyncedInvestments = async (userId: string): Promise<void> => {
   try {
     const unsyncedInvs = await db.getAllAsync<Investment>(
       `SELECT * FROM investments WHERE isSynced = 0;`
     );
-    
+
     if (unsyncedInvs.length === 0) {
       console.log("No unsynced investments to upload");
       return;
     }
-    
-    console.log(`Uploading ${unsyncedInvs.length} unsynced investments...`);
 
-    // --- OPTIMIZATION ---
-    // Fetch all existing investment UUIDs from the sheet just one time to avoid
-    // making a network request for every single item in the loop (the "N+1 problem").
-    const existingCheck = await callSheetsApi('GET', { queryString: '?action=getInvestments' });
-    const existingUuids = new Set((existingCheck?.data || []).map((inv: any) => inv.uuid));
-    // --- END OPTIMIZATION ---
+    console.log(`Uploading ${unsyncedInvs.length} unsynced investments to Supabase...`);
 
     for (const inv of unsyncedInvs) {
       try {
-        let action: string;
-        let payloadData: any;
-
         if (inv.isDeleted) {
-          action = "deleteInvestment";
-          payloadData = { uuid: inv.uuid };
-        } else {
-          // Now, perform a fast check against the Set you already fetched
-          const existsInSheets = existingUuids.has(inv.uuid);
-          
-          action = existsInSheets ? "updateInvestment" : "addInvestment";
-          payloadData = {
-            uuid: inv.uuid,
-            name: inv.name,
-            type: inv.type,
-            quantity: inv.quantity,
-            purchasePrice: inv.purchasePrice,
-            purchaseDate: formatDateForSheets(inv.purchaseDate),
-            currentValue: inv.currentValue,
-            status: inv.status,
-            soldPrice: inv.soldPrice || null
-          };
-        }
+          // Delete from Supabase
+          const { error } = await supabase
+            .from('investments')
+            .delete()
+            .eq('id', inv.uuid);
 
-        console.log(`Syncing ${action} for investment UUID: ${inv.uuid}`);
-        
-        await callSheetsApi('POST', { action, data: payloadData });
+          if (error) {
+            console.error(`Failed to delete investment ${inv.uuid} from Supabase:`, error.message);
+            continue;
+          }
 
-        // Handle successful sync:
-        // If the item was marked for deletion, permanently remove it from the local DB.
-        // Otherwise, mark it as synced.
-        if (inv.isDeleted) {
           await db.runAsync(`DELETE FROM investments WHERE uuid = ?;`, [inv.uuid]);
           console.log(`Permanently deleted investment ${inv.uuid} after sync`);
         } else {
+          // Upsert to Supabase
+          const { error } = await supabase
+            .from('investments')
+            .upsert(
+              {
+                id: inv.uuid,
+                user_id: userId,
+                name: inv.name,
+                type: inv.type,
+                quantity: inv.quantity,
+                purchase_price: inv.purchasePrice,
+                purchase_date: inv.purchaseDate,
+                current_value: inv.currentValue,
+                status: inv.status,
+                sold_price: inv.soldPrice || null,
+              },
+              { onConflict: 'id' }
+            );
+
+          if (error) {
+            console.error(`Failed to upsert investment ${inv.uuid}:`, error.message);
+            continue;
+          }
+
           await db.runAsync(`UPDATE investments SET isSynced = 1 WHERE uuid = ?;`, [inv.uuid]);
           console.log(`Successfully synced investment ${inv.uuid}`);
         }
-        
       } catch (error) {
         console.error(`Failed to sync investment ${inv.uuid}:`, error);
-        
-        // If a network error occurs, stop the sync process to avoid repeated failures.
-        // The remaining items will be synced in the next attempt.
-        if (error instanceof Error && (error.message.includes('network') || error.message.includes('timeout'))) {
+
+        if (error instanceof Error && (error.message.includes('network') || error.message.includes('timeout') || error.message.includes('fetch'))) {
           console.log("Network error - will retry later");
-          break; 
+          break;
         }
-        // For other errors (e.g., bad data), continue to the next item.
       }
     }
   } catch (error) {
@@ -541,79 +503,75 @@ export const uploadUnsyncedInvestments = async (): Promise<void> => {
   }
 };
 
-// --- MODIFIED: Sync function now uses secure backend ---
-export const syncData = async (isFullSync: boolean): Promise<void> => {
+// --- FULL SYNC (Upload + Download) ---
+
+export const syncData = async (isFullSync: boolean, userId: string): Promise<void> => {
   console.log(`Starting sync process (full: ${isFullSync})...`);
-  
+
   try {
     // Always upload pending changes first
-    await uploadUnsyncedTransactions();
-    await uploadUnsyncedInvestments();
+    await uploadUnsyncedTransactions(userId);
+    await uploadUnsyncedInvestments(userId);
 
     if (!isFullSync) {
       console.log("Upload-only sync completed");
       return;
     }
 
-    console.log("Performing full data download from Google Sheets...");
-    
-    // Download all data securely via backend
+    console.log("Performing full data download from Supabase...");
+
+    // Download all data from Supabase
     const [txResponse, budgetResponse, invResponse] = await Promise.all([
-      callSheetsApi('GET', { queryString: '?action=getTransactions' }),
-      callSheetsApi('GET', { queryString: '?action=getBudgets' }),
-      callSheetsApi('GET', { queryString: '?action=getInvestments' }),
+      supabase.from('transactions').select('*'),
+      supabase.from('budgets').select('*'),
+      supabase.from('investments').select('*'),
     ]);
 
+    if (txResponse.error) throw new Error(`Failed to fetch transactions: ${txResponse.error.message}`);
+    if (budgetResponse.error) throw new Error(`Failed to fetch budgets: ${budgetResponse.error.message}`);
+    if (invResponse.error) throw new Error(`Failed to fetch investments: ${invResponse.error.message}`);
+
     // Process transactions
-    const sheetTransactions = txResponse?.data || [];
-    console.log(`Downloaded ${sheetTransactions.length} transactions from sheets`);
+    const cloudTransactions = txResponse.data || [];
+    console.log(`Downloaded ${cloudTransactions.length} transactions from Supabase`);
 
     await db.withTransactionAsync(async () => {
-      for (const sheetTx of sheetTransactions) {
-        if (!sheetTx.uuid) continue;
+      for (const cloudTx of cloudTransactions) {
+        if (!cloudTx.id) continue;
 
-        const normalizedDate = parseAndNormalizeToIST(sheetTx.Date || sheetTx.date);
+        const normalizedDate = parseAndNormalizeToIST(cloudTx.date);
         const existing = await db.getFirstAsync<{ count: number }>(
           `SELECT COUNT(*) as count FROM transactions WHERE uuid = ?;`,
-          [sheetTx.uuid]
+          [cloudTx.id]
         );
 
-        let transactionType = (sheetTx.Type || sheetTx.type || "expense").toString().toLowerCase();
+        let transactionType = (cloudTx.type || "expense").toString().toLowerCase();
         transactionType = transactionType === "income" ? "income" : "expense";
-
-        const transactionData = {
-          uuid: sheetTx.uuid,
-          type: transactionType,
-          amount: parseFloat(sheetTx.Amount || sheetTx.amount || 0),
-          category: sheetTx.Category || sheetTx.category || "Other",
-          date: normalizedDate,
-          notes: sheetTx.Notes || sheetTx.notes || "",
-        };
 
         if (!existing || existing.count === 0) {
           await db.runAsync(
             `INSERT INTO transactions (uuid, type, amount, category, date, notes, isSynced, isDeleted) VALUES (?, ?, ?, ?, ?, ?, 1, 0);`,
-            [transactionData.uuid, transactionData.type, transactionData.amount,
-             transactionData.category, transactionData.date, transactionData.notes]
+            [cloudTx.id, transactionType, parseFloat(cloudTx.amount || 0),
+             cloudTx.category || "Other", normalizedDate, cloudTx.notes || ""]
           );
         } else {
           await db.runAsync(
             `UPDATE transactions SET type = ?, amount = ?, category = ?, date = ?, notes = ?, isSynced = 1, isDeleted = 0 WHERE uuid = ?;`,
-            [transactionData.type, transactionData.amount, transactionData.category,
-             transactionData.date, transactionData.notes, transactionData.uuid]
+            [transactionType, parseFloat(cloudTx.amount || 0), cloudTx.category || "Other",
+             normalizedDate, cloudTx.notes || "", cloudTx.id]
           );
         }
       }
     });
 
     // Process budgets
-    const sheetBudgets = budgetResponse?.data || [];
-    console.log(`Downloaded ${sheetBudgets.length} budgets from sheets`);
+    const cloudBudgets = budgetResponse.data || [];
+    console.log(`Downloaded ${cloudBudgets.length} budgets from Supabase`);
 
     await db.withTransactionAsync(async () => {
-      for (const budget of sheetBudgets) {
-        const monthYear = budget.MonthYear || budget.monthYear;
-        const amount = budget.BudgetAmount || budget.amount || budget.budgetAmount;
+      for (const budget of cloudBudgets) {
+        const monthYear = budget.month_year;
+        const amount = budget.amount;
 
         if (monthYear && amount !== undefined) {
           await db.runAsync(
@@ -625,44 +583,37 @@ export const syncData = async (isFullSync: boolean): Promise<void> => {
     });
 
     // Process investments
-    const sheetInvestments = invResponse?.data || [];
-    console.log(`Downloaded ${sheetInvestments.length} investments from sheets`);
+    const cloudInvestments = invResponse.data || [];
+    console.log(`Downloaded ${cloudInvestments.length} investments from Supabase`);
 
     await db.withTransactionAsync(async () => {
-      for (const sheetInv of sheetInvestments) {
-        if (!sheetInv.uuid) continue;
+      for (const cloudInv of cloudInvestments) {
+        if (!cloudInv.id) continue;
 
-        const normalizedPurchaseDate = parseAndNormalizeToIST(sheetInv.purchaseDate);
+        const normalizedPurchaseDate = parseAndNormalizeToIST(cloudInv.purchase_date);
         const existing = await db.getFirstAsync<{ count: number }>(
           `SELECT COUNT(*) as count FROM investments WHERE uuid = ?;`,
-          [sheetInv.uuid]
+          [cloudInv.id]
         );
-
-        const investmentData = {
-          uuid: sheetInv.uuid,
-          name: sheetInv.name || "Unknown Investment",
-          type: sheetInv.type || "Other",
-          quantity: parseFloat(sheetInv.quantity || 0),
-          purchasePrice: parseFloat(sheetInv.purchasePrice || 0),
-          purchaseDate: normalizedPurchaseDate,
-          currentValue: parseFloat(sheetInv.currentValue || 0),
-          status: (sheetInv.status || "active").toLowerCase() === "sold" ? "sold" : "active",
-          soldPrice: sheetInv.soldPrice ? parseFloat(sheetInv.soldPrice) : null,
-        };
 
         if (!existing || existing.count === 0) {
           await db.runAsync(
             `INSERT INTO investments (uuid, name, type, quantity, purchasePrice, purchaseDate, currentValue, status, soldPrice, isSynced, isDeleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0);`,
-            [investmentData.uuid, investmentData.name, investmentData.type, investmentData.quantity,
-             investmentData.purchasePrice, investmentData.purchaseDate, investmentData.currentValue,
-             investmentData.status, investmentData.soldPrice]
+            [cloudInv.id, cloudInv.name || "Unknown Investment", cloudInv.type || "Other",
+             parseFloat(cloudInv.quantity || 0), parseFloat(cloudInv.purchase_price || 0),
+             normalizedPurchaseDate, parseFloat(cloudInv.current_value || 0),
+             (cloudInv.status || "active").toLowerCase() === "sold" ? "sold" : "active",
+             cloudInv.sold_price ? parseFloat(cloudInv.sold_price) : null]
           );
         } else {
           await db.runAsync(
             `UPDATE investments SET name = ?, type = ?, quantity = ?, purchasePrice = ?, purchaseDate = ?, currentValue = ?, status = ?, soldPrice = ?, isSynced = 1, isDeleted = 0 WHERE uuid = ?;`,
-            [investmentData.name, investmentData.type, investmentData.quantity, investmentData.purchasePrice,
-             investmentData.purchaseDate, investmentData.currentValue, investmentData.status,
-             investmentData.soldPrice, investmentData.uuid]
+            [cloudInv.name || "Unknown Investment", cloudInv.type || "Other",
+             parseFloat(cloudInv.quantity || 0), parseFloat(cloudInv.purchase_price || 0),
+             normalizedPurchaseDate, parseFloat(cloudInv.current_value || 0),
+             (cloudInv.status || "active").toLowerCase() === "sold" ? "sold" : "active",
+             cloudInv.sold_price ? parseFloat(cloudInv.sold_price) : null,
+             cloudInv.id]
           );
         }
       }
@@ -674,20 +625,22 @@ export const syncData = async (isFullSync: boolean): Promise<void> => {
 
   } catch (error) {
     console.error("Sync process failed:", error);
-    
+
     if (error instanceof Error) {
-      if (error.message.includes('network') || error.message.includes('Network')) {
+      if (error.message.includes('network') || error.message.includes('Network') || error.message.includes('fetch')) {
         throw new Error("Network error - please check your internet connection");
       } else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
         throw new Error("Sync timeout - please try again");
-      } else if (error.message.includes('Backend URL is not configured')) {
-        throw new Error("Backend configuration error - please contact support");
+      } else if (error.message.includes('JWT') || error.message.includes('token')) {
+        throw new Error("Authentication expired - please sign in again");
       }
     }
-    
+
     throw error;
   }
 };
+
+// --- SYNC STATUS ---
 
 const getUnsyncedTransactions = async (): Promise<Transaction[]> => {
   try {
@@ -707,10 +660,10 @@ const getUnsyncedInvestments = async (): Promise<Investment[]> => {
   }
 };
 
-export const getSyncStatus = async (): Promise<{ 
-  unsyncedTransactionsCount: number; 
-  unsyncedInvestmentsCount: number; 
-  lastSync: string | null; 
+export const getSyncStatus = async (): Promise<{
+  unsyncedTransactionsCount: number;
+  unsyncedInvestmentsCount: number;
+  lastSync: string | null;
 }> => {
   try {
     const unsyncedTxs = await getUnsyncedTransactions();
@@ -725,10 +678,10 @@ export const getSyncStatus = async (): Promise<{
     };
   } catch (error) {
     console.error("Failed to get sync status:", error);
-    return { 
-      unsyncedTransactionsCount: 0, 
-      unsyncedInvestmentsCount: 0, 
-      lastSync: 'Error' 
+    return {
+      unsyncedTransactionsCount: 0,
+      unsyncedInvestmentsCount: 0,
+      lastSync: 'Error'
     };
   }
 };

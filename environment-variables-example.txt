@@ -1,10 +1,11 @@
-This file is an example. Create a .env file in the root directory and add your actual keys.
+This file is an example. Create a .env file in the root directory and add your actual values.
 Remember to prefix all variables with EXPO_PUBLIC_ to make them accessible in the app.
-1. Your API key for the Google Gemini API
-GEMINI_API_KEY="YOUR_GEMINI_API_KEY_HERE"
 
-2. The Web app URL from your deployed Google Apps Script
-GOOGLE_SHEETS_API_URL="YOUR_GOOGLE_SHEETS_WEB_APP_URL_HERE"
+1. Your Supabase project URL (from Project Settings → API)
+EXPO_PUBLIC_SUPABASE_URL="https://your-project-ref.supabase.co"
 
-3. The secret key you defined inside your Code.gs file
-GOOGLE_SHEETS_API_KEY="YOUR_GOOGLE_SHEETS_SECRET_KEY_HERE"
+2. Your Supabase anon/public key (from Project Settings → API)
+EXPO_PUBLIC_SUPABASE_ANON_KEY="eyJ..."
+
+Note: AI API keys (Gemini/ChatGPT) are entered by the user directly in the app
+and stored securely on-device. No server-side AI keys needed.

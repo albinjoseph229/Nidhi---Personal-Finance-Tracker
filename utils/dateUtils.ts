@@ -46,7 +46,7 @@ export const convertToISTISOString = (date: Date): string => {
 
 /**
  * Parse date from various formats and convert to IST ISO string
- * Handles dates from Google Sheets, user input, Date objects, etc.
+ * Handles dates from various sources, user input, Date objects, etc.
  */
 export const parseAndNormalizeToIST = (dateInput: any): string => {
   try {
@@ -121,47 +121,6 @@ export const formatDateForDisplay = (dateString: string): string => {
   } catch (error) {
     console.error('Error formatting date for display:', error);
     return 'Invalid Date';
-  }
-};
-
-/**
- * Format date for Google Sheets (YYYY-MM-DD format in IST)
- * This version is robust and avoids parsing locale-specific strings.
- */
-export const formatDateForSheets = (dateString: string): string => {
-  try {
-    const date = new Date(dateString);
-
-    if (isNaN(date.getTime())) {
-      console.error('Invalid date string provided to formatDateForSheets:', dateString);
-      // As a fallback, return today's date in IST
-      const now = new Date();
-      const year = now.toLocaleDateString('en-US', { year: 'numeric', timeZone: IST_TIMEZONE });
-      const month = now.toLocaleDateString('en-US', { month: '2-digit', timeZone: IST_TIMEZONE });
-      const day = now.toLocaleDateString('en-US', { day: '2-digit', timeZone: IST_TIMEZONE });
-      return `${year}-${month}-${day}`;
-    }
-
-    // Use toLocaleString to get the individual date parts in the correct timezone
-    // 'en-CA' locale is used as it reliably produces YYYY-MM-DD format.
-    const formattedDate = date.toLocaleDateString('en-CA', {
-      timeZone: IST_TIMEZONE,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-    
-    // The result is already in 'YYYY-MM-DD' format
-    return formattedDate;
-
-  } catch (error) {
-    console.error('Error in formatDateForSheets:', error, 'Input:', dateString);
-    // Fallback to current date
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
   }
 };
 

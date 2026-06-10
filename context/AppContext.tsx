@@ -1,3 +1,6 @@
+// context/AppContext.tsx
+// Global state management with Supabase sync awareness
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Network from "expo-network";
 import React, {
@@ -9,8 +12,9 @@ import React, {
   useState,
 } from "react";
 import * as db from "../database";
-import { Budget, callSheetsApi, Investment, Transaction } from "../database";
-
+import { Budget, Investment, Transaction } from "../database";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "./AuthContext";
 
 interface AppContextType {
   transactions: Transaction[];
@@ -19,8 +23,8 @@ interface AppContextType {
   isSyncing: boolean;
   isOnline: boolean;
   lastSyncError: string | null;
-  triggerUploadSync: () => Promise<void>; // For uploading pending changes
-  triggerFullSync: () => Promise<void>; // For full download (rare)
+  triggerUploadSync: () => Promise<void>;
+  triggerFullSync: () => Promise<void>;
   addTransaction: (
     txData: Omit<Transaction, "isSynced" | "id" | "uuid">
   ) => Promise<void>;
@@ -39,7 +43,6 @@ interface AppContextType {
   ) => Promise<void>;
   deleteInvestment: (uuid: string) => Promise<void>;
   clearSyncError: () => void;
-  // NEW: Backend connection test
   testConnection: () => Promise<void>;
 }
 
@@ -57,7 +60,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const isInitialized = useRef(false);
   const lastNetworkCheck = useRef(0);
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSyncTime = useRef(0); // Track last sync time to prevent rapid syncs
+  const lastSyncTime = useRef(0);
 
   const refreshLocalData = async (): Promise<{ hasData: boolean }> => {
     try {
@@ -77,40 +80,37 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const testConnection = async () => {
-    console.log("=== TESTING BACKEND CONNECTION ===");
-    const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
-
-    if (!BACKEND_URL) {
-      const error =
-        "BACKEND_URL is not configured. Please check your .env file.";
-      console.error(error);
-      setLastSyncError(error);
-      return;
-    }
+    console.log("=== TESTING SUPABASE CONNECTION ===");
 
     try {
-      console.log(
-        "Testing connection to:",
-        `${BACKEND_URL}/api/sheets?action=getTransactions`
-      );
+      // Test Supabase connectivity with a simple query
+      const { error } = await supabase
+        .from('transactions')
+        .select('id', { count: 'exact', head: true });
 
-      // Use your robust, authenticated API function instead of a basic fetch
-      await callSheetsApi("GET", { queryString: "?action=getTransactions" });
+      if (error) {
+        // RLS errors are fine — they mean the connection works but no data for this user yet
+        if (error.code === 'PGRST301' || error.message.includes('JWT')) {
+          console.log("⚠️ Supabase connection OK but auth issue:", error.message);
+          setLastSyncError("Authentication issue - please sign in again");
+          return;
+        }
+        throw error;
+      }
 
-      // The response is already parsed JSON and status is checked by callSheetsApi
-      console.log("✅ Backend connection successful");
+      console.log("✅ Supabase connection successful");
       setLastSyncError(null);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
-      console.error("❌ Backend connection failed:", errorMessage);
+      console.error("❌ Supabase connection failed:", errorMessage);
 
       if (
         errorMessage.includes("Network request failed") ||
         errorMessage.includes("fetch")
       ) {
         setLastSyncError(
-          "Cannot reach backend server. Check internet connection and backend URL."
+          "Cannot reach Supabase. Check internet connection."
         );
       } else {
         setLastSyncError(`Connection test failed: ${errorMessage}`);
@@ -118,11 +118,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const getUserId = async (): Promise<string | null> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.user?.id ?? null;
+  };
+
   const triggerFullSync = async (isFullDownload: boolean = false) => {
     const now = Date.now();
-    const SYNC_COOLDOWN = 10000; // 10 seconds cooldown between syncs
+    const SYNC_COOLDOWN = 10000;
 
-    // Prevent rapid successive syncs
     if (now - lastSyncTime.current < SYNC_COOLDOWN) {
       console.log(
         `Sync cooldown active. Last sync was ${Math.round(
@@ -145,17 +149,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
+    // Get user ID — skip sync if not authenticated
+    const userId = await getUserId();
+    if (!userId) {
+      console.log("No authenticated user, skipping sync");
+      return;
+    }
+
     lastSyncTime.current = now;
     setIsSyncing(true);
     setLastSyncError(null);
     console.log(`Starting sync process (full download: ${isFullDownload})`);
 
     try {
-      await db.syncData(isFullDownload);
+      await db.syncData(isFullDownload, userId);
       await refreshLocalData();
       await AsyncStorage.setItem("lastSyncTimestamp", new Date().toISOString());
       console.log("Sync completed successfully");
-      setLastSyncError(null); // Clear any previous errors on success
+      setLastSyncError(null);
     } catch (error) {
       let errorMessage = "Sync failed";
 
@@ -163,22 +174,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         errorMessage = error.message;
         console.error("Sync failed:", errorMessage);
 
-        // Provide more helpful error messages based on error type
-        if (errorMessage.includes("Backend URL is not configured")) {
-          setLastSyncError("App configuration error: Backend URL missing");
-        } else if (
-          errorMessage.includes("Network error") ||
-          errorMessage.includes("Cannot reach backend")
-        ) {
-          setLastSyncError(
-            "Cannot connect to server. Check your internet connection."
-          );
+        if (errorMessage.includes("Network error") || errorMessage.includes("Cannot reach") || errorMessage.includes("fetch")) {
+          setLastSyncError("Cannot connect to server. Check your internet connection.");
         } else if (errorMessage.includes("timeout")) {
           setLastSyncError("Connection timeout. Please try again.");
-        } else if (errorMessage.includes("API keys not configured")) {
-          setLastSyncError(
-            "Server configuration issue. Please contact support."
-          );
+        } else if (errorMessage.includes("Authentication") || errorMessage.includes("JWT") || errorMessage.includes("token")) {
+          setLastSyncError("Authentication expired. Please sign in again.");
         } else {
           setLastSyncError(`Sync failed: ${errorMessage}`);
         }
@@ -194,7 +195,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // Network monitoring with throttling
   const checkNetworkStatus = async () => {
     const now = Date.now();
-    // Throttle network checks to every 30 seconds
     if (now - lastNetworkCheck.current < 30000) {
       return;
     }
@@ -213,12 +213,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         );
         setIsOnline(nowOnline);
 
-        // Clear network-related errors when coming back online
         if (!wasOnline && nowOnline && lastSyncError?.includes("offline")) {
           setLastSyncError(null);
         }
 
-        // If we just came back online, trigger upload sync after a delay
         if (!wasOnline && nowOnline && isInitialized.current) {
           if (syncTimeoutRef.current) {
             clearTimeout(syncTimeoutRef.current);
@@ -235,7 +233,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // App initialization effect - runs only once
+  // App initialization effect
   useEffect(() => {
     const initializeApp = async () => {
       if (isInitialized.current) {
@@ -251,78 +249,41 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const { hasData } = await refreshLocalData();
         console.log(`Local data exists: ${hasData}`);
 
-        // Check initial network status
         await checkNetworkStatus();
         console.log(`Network status: ${isOnline ? "online" : "offline"}`);
 
         if (isOnline) {
-          // MODIFIED: Test connection first before attempting sync
-          console.log("Testing backend connection before sync...");
+          console.log("Testing Supabase connection before sync...");
           await testConnection();
 
-          // Only proceed with sync if no critical connection errors
-          if (
-            !lastSyncError ||
-            (!lastSyncError.includes("Cannot reach backend") &&
-              !lastSyncError.includes("Backend URL missing"))
-          ) {
+          const userId = await getUserId();
+          if (userId) {
             if (!hasData) {
               console.log("=== REASON: First launch with no data ===");
               await triggerFullSync(true);
             } else {
-              // Check if weekly sync is needed
-              const lastSyncString = await AsyncStorage.getItem(
-                "lastFullSyncTimestamp"
-              );
-              const lastSyncTime = lastSyncString
-                ? parseInt(lastSyncString, 10)
-                : 0;
+              const lastSyncString = await AsyncStorage.getItem("lastFullSyncTimestamp");
+              const lastSyncTimeVal = lastSyncString ? parseInt(lastSyncString, 10) : 0;
               const oneWeek = 7 * 24 * 60 * 60 * 1000;
-              const timeSinceLastSync = Date.now() - lastSyncTime;
-
-              console.log(`=== SYNC DECISION LOGIC ===`);
-              console.log(`Last sync timestamp: ${lastSyncString || "null"}`);
-              console.log(
-                `Last sync: ${
-                  lastSyncTime === 0
-                    ? "Never"
-                    : new Date(lastSyncTime).toLocaleString()
-                }`
-              );
-              console.log(
-                `Time since last sync: ${Math.round(
-                  timeSinceLastSync / (1000 * 60 * 60)
-                )} hours`
-              );
-              console.log(
-                `Weekly sync threshold: ${Math.round(
-                  oneWeek / (1000 * 60 * 60)
-                )} hours (168 hours)`
-              );
-              console.log(`Needs weekly sync: ${timeSinceLastSync > oneWeek}`);
+              const timeSinceLastSync = Date.now() - lastSyncTimeVal;
 
               if (timeSinceLastSync > oneWeek) {
                 console.log("=== REASON: Weekly full sync needed ===");
                 await triggerFullSync(true);
               } else {
-                console.log(
-                  "=== REASON: Checking for pending uploads only ==="
-                );
+                console.log("=== REASON: Checking for pending uploads only ===");
                 await triggerFullSync(false);
               }
             }
           } else {
-            console.log("Skipping sync due to connection issues");
+            console.log("No authenticated user — skipping cloud sync");
           }
         } else {
           console.log("App initialized offline - no sync performed");
-          setLastSyncError(
-            "App started offline. Connect to internet to sync data."
-          );
+          setLastSyncError("App started offline. Connect to internet to sync data.");
         }
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
         console.error("App initialization failed:", errorMessage);
         setLastSyncError(`App initialization failed: ${errorMessage}`);
       } finally {
@@ -332,20 +293,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
 
     initializeApp();
-  }, []); // Empty dependency array - runs only once
+  }, []);
 
   // Network monitoring effect
   useEffect(() => {
-    const interval = setInterval(checkNetworkStatus, 60000); // Check every minute
+    const interval = setInterval(checkNetworkStatus, 60000);
     return () => {
       clearInterval(interval);
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
       }
     };
-  }, [isOnline]); // Only re-run if isOnline changes
+  }, [isOnline]);
 
-  // Transaction functions (unchanged)
+  // Transaction functions
   const addTransaction = async (
     txData: Omit<Transaction, "isSynced" | "id" | "uuid">
   ): Promise<void> => {
@@ -395,7 +356,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Investment functions (unchanged)
   const addInvestment = async (
     invData: Omit<Investment, "isSynced" | "uuid">
   ): Promise<void> => {
@@ -445,11 +405,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     lastSyncError,
     triggerUploadSync: () => {
       console.log("=== UPLOAD SYNC TRIGGERED FROM UI ===");
-      return triggerFullSync(false); // Upload pending changes only
+      return triggerFullSync(false);
     },
     triggerFullSync: () => {
       console.log("=== FULL SYNC TRIGGERED FROM UI ===");
-      return triggerFullSync(true); // Full download - should be rare
+      return triggerFullSync(true);
     },
     addTransaction,
     updateTransaction,
@@ -459,7 +419,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     updateInvestment,
     deleteInvestment,
     clearSyncError,
-    testConnection, // NEW: Expose test function for debugging
+    testConnection,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
