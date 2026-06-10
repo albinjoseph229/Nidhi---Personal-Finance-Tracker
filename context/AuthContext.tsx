@@ -3,6 +3,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session, User } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as WebBrowser from 'expo-web-browser';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
@@ -57,7 +58,60 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    return () => subscription.unsubscribe();
+    // Handle deep links for email verification
+    const handleDeepLink = async (url: string | null) => {
+      if (!url) return;
+      try {
+        const parsedUrl = Linking.parse(url);
+        
+        // Handle PKCE flow
+        if (parsedUrl.queryParams?.code) {
+          await supabase.auth.exchangeCodeForSession(parsedUrl.queryParams.code as string);
+          return;
+        }
+
+        // Handle Implicit flow
+        const accessToken = parsedUrl.queryParams?.access_token as string;
+        const refreshToken = parsedUrl.queryParams?.refresh_token as string;
+        if (accessToken && refreshToken) {
+          await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          return;
+        }
+        
+        // Manual fallback for hash fragment
+        if (url.includes('#')) {
+          const fragment = url.split('#')[1];
+          // Use string split to avoid URLSearchParams dependency issues
+          const params = fragment.split('&').reduce((acc, curr) => {
+            const [key, value] = curr.split('=');
+            acc[key] = value;
+            return acc;
+          }, {} as Record<string, string>);
+          
+          if (params.access_token && params.refresh_token) {
+            await supabase.auth.setSession({ 
+              access_token: params.access_token, 
+              refresh_token: params.refresh_token 
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Error parsing deep link:", e);
+      }
+    };
+
+    // Check initial URL (if app was closed)
+    Linking.getInitialURL().then(handleDeepLink);
+
+    // Listen for incoming URLs while app is open
+    const urlSubscription = Linking.addEventListener('url', (event) => {
+      handleDeepLink(event.url);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      urlSubscription.remove();
+    };
   }, []);
 
   // Load biometric lock setting
@@ -119,9 +173,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     email: string,
     password: string
   ): Promise<{ error: string | null }> => {
+    // Generate the correct deep link for the current environment (Expo Go or Production build)
+    const redirectUrl = Linking.createURL('/auth/callback');
+    
     const { error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: redirectUrl,
+      },
     });
     if (error) {
       return { error: error.message };
