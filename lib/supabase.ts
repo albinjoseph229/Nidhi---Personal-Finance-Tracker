@@ -1,5 +1,6 @@
 // lib/supabase.ts
 // Supabase client singleton for React Native (Expo)
+import 'react-native-url-polyfill/auto';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
