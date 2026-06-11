@@ -319,23 +319,19 @@ export default function ReportsScreen() {
             { backgroundColor: cardColor, shadowColor: textColor },
           ]}
         >
-          <ThemedView
-            style={[
-              styles.viewModeSelector,
-              { backgroundColor: backgroundColor },
-            ]}
-          >
-            {/* Top Row of Buttons */}
-            <View style={styles.selectorRow}>
+          <View style={styles.viewModeContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
               {[
                 { key: "current", label: "This Month", icon: "calendar" },
                 { key: "yearly", label: "Yearly", icon: "bar-chart-2" },
                 { key: "monthly", label: "Trend", icon: "activity" },
+                { key: "investments", label: "Investments", icon: "trending-up" },
               ].map((mode) => (
                 <Pressable
                   key={mode.key}
                   style={[
-                    styles.viewModeButton,
+                    styles.viewModePill,
+                    { backgroundColor: backgroundColor },
                     viewMode === mode.key && { backgroundColor: activeColor },
                   ]}
                   onPress={() => setViewMode(mode.key as ViewMode)}
@@ -347,7 +343,7 @@ export default function ReportsScreen() {
                   />
                   <ThemedText
                     style={[
-                      styles.viewModeText,
+                      styles.viewModePillText,
                       viewMode === mode.key && { color: activeTextColor },
                     ]}
                   >
@@ -355,39 +351,8 @@ export default function ReportsScreen() {
                   </ThemedText>
                 </Pressable>
               ))}
-            </View>
-            {/* Bottom Row of Buttons */}
-            <View style={styles.selectorRow}>
-              {[{ key: "investments", label: "Investments", icon: "trending-up" }].map(
-                (mode) => (
-                  <Pressable
-                    key={mode.key}
-                    style={[
-                      styles.viewModeButton,
-                      viewMode === mode.key && { backgroundColor: activeColor },
-                    ]}
-                    onPress={() => setViewMode(mode.key as ViewMode)}
-                  >
-                    <Feather
-                      name={mode.icon as any}
-                      size={14}
-                      color={
-                        viewMode === mode.key ? activeTextColor : textColor
-                      }
-                    />
-                    <ThemedText
-                      style={[
-                        styles.viewModeText,
-                        viewMode === mode.key && { color: activeTextColor },
-                      ]}
-                    >
-                      {mode.label}
-                    </ThemedText>
-                  </Pressable>
-                )
-              )}
-            </View>
-          </ThemedView>
+            </ScrollView>
+          </View>
           {(viewMode === "yearly" || viewMode === "monthly") && (
             <View style={styles.yearSelector}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -865,27 +830,19 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardTitle: { fontSize: 18, fontWeight: "600", marginBottom: 16 },
-  viewModeSelector: {
-    borderRadius: 12,
-    padding: 4,
-    flexDirection: "column",
-    gap: 4,
+  viewModeContainer: {
+    marginBottom: 4,
   },
-  selectorRow: {
-    flexDirection: "row",
-    gap: 4,
-  },
-  viewModeButton: {
-    flex: 1,
+  viewModePill: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 10,
-    borderRadius: 10,
+    paddingHorizontal: 18,
+    borderRadius: 24,
     gap: 8,
-    paddingHorizontal: 5,
   },
-  viewModeText: { fontSize: 14, fontWeight: "600", flexShrink: 1 },
+  viewModePillText: { fontSize: 14, fontWeight: "600" },
   yearSelector: { marginTop: 16 },
   yearButton: {
     paddingHorizontal: 16,

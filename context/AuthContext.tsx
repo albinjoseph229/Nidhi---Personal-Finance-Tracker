@@ -20,6 +20,8 @@ interface AuthContextType {
   isAuthLoading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
   signUpWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
+  verifyOtp: (email: string, token: string) => Promise<{ error: string | null }>;
+  signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   // Biometric Lock (kept from original)
   isAppLockEnabled: boolean;
@@ -189,6 +191,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: null };
   };
 
+  const verifyOtp = async (email: string, token: string): Promise<{ error: string | null }> => {
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
+    if (error) return { error: error.message };
+    return { error: null };
+  };
+
+  const signInWithGoogle = async (): Promise<{ error: string | null }> => {
+    try {
+      const redirectUrl = Linking.createURL('/auth/callback');
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: true, // We handle the browser in React Native
+        },
+      });
+      
+      if (error) return { error: error.message };
+      
+      if (data?.url) {
+        await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+        // The global Linking.addEventListener inside useEffect will catch the redirect
+        // and complete the login via exchangeCodeForSession or setSession.
+      }
+      return { error: null };
+    } catch (e: any) {
+      return { error: e.message || 'Something went wrong with Google Sign In' };
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setSession(null);
@@ -237,6 +269,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isAuthLoading,
     signInWithEmail,
     signUpWithEmail,
+    verifyOtp,
+    signInWithGoogle,
     signOut,
     // Biometric Lock
     isAppLockEnabled,

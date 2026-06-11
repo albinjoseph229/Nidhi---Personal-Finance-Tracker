@@ -136,8 +136,7 @@ export default function AISettingsScreen() {
         {/* Provider Selection */}
         <ThemedView style={[styles.card, { backgroundColor: cardColor }]}>
           <ThemedText style={[styles.cardTitle, { color: secondaryColor }]}>Provider</ThemedText>
-          <Pressable style={[styles.providerOption, provider === 'gemini' && styles.providerSelected,
-            provider === 'gemini' && { borderColor: '#4285F4' }]}
+          <Pressable style={[styles.providerOption, provider === 'gemini' && { borderColor: '#4285F4' }]}
             onPress={() => handleProviderChange('gemini')}>
             <View style={styles.providerInfo}>
               <ThemedText style={[styles.providerName, { color: textColor }]}>Google Gemini</ThemedText>
@@ -145,8 +144,7 @@ export default function AISettingsScreen() {
             </View>
             {provider === 'gemini' && <Feather name="check" size={20} color="#4285F4" />}
           </Pressable>
-          <Pressable style={[styles.providerOption, provider === 'chatgpt' && styles.providerSelected,
-            provider === 'chatgpt' && { borderColor: '#10A37F' }, { borderBottomWidth: 0 }]}
+          <Pressable style={[styles.providerOption, provider === 'chatgpt' && { borderColor: '#10A37F' }]}
             onPress={() => handleProviderChange('chatgpt')}>
             <View style={styles.providerInfo}>
               <ThemedText style={[styles.providerName, { color: textColor }]}>OpenAI ChatGPT</ThemedText>
@@ -243,8 +241,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 14, fontWeight: '600' },
   card: { borderRadius: 20, paddingHorizontal: 20, paddingVertical: 16, marginBottom: 16, elevation: 2 },
   cardTitle: { fontSize: 13, fontWeight: '500', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
-  providerOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#00000010', borderWidth: 2, borderColor: 'transparent', borderRadius: 12, paddingHorizontal: 14, marginBottom: 8 },
-  providerSelected: { borderWidth: 2 },
+  providerOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderWidth: 2, borderColor: 'transparent', borderRadius: 12, paddingHorizontal: 14, marginBottom: 8 },
   providerInfo: { flex: 1 },
   providerName: { fontSize: 16, fontWeight: '600' },
   providerDesc: { fontSize: 12, marginTop: 2 },

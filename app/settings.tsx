@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator, Alert, Pressable, StyleSheet, Switch, View,
+  ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, View,
 } from "react-native";
 import { ThemedText } from "../components/themed-text";
 import { ThemedView } from "../components/themed-view";
@@ -14,6 +14,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useThemeColor } from "../hooks/use-theme-color";
 import { hasAIKey, getAIConfig } from "../lib/aiKeyStore";
+import { supabase } from "../lib/supabase";
 import { generateReportWithGemini } from "../utils/geminiApi";
 import { generateFinancialReport as generatePdfReport } from "../utils/pdfExport";
 
@@ -30,6 +31,10 @@ export default function ProfileScreen() {
   const [lastAiReportTime, setLastAiReportTime] = useState<string | null>(null);
   const [aiConfigured, setAiConfigured] = useState(false);
   const [aiProviderName, setAiProviderName] = useState<string | null>(null);
+
+  const [isChangePasswordVisible, setChangePasswordVisible] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const cardColor = useThemeColor({}, "card");
   const textColor = useThemeColor({}, "text");
@@ -110,6 +115,24 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const submitNewPassword = async () => {
+    if (newPassword.length < 6) {
+      return Alert.alert("Weak Password", "Password must be at least 6 characters.");
+    }
+    setIsUpdatingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      Alert.alert("Success", "Your password has been updated.");
+      setChangePasswordVisible(false);
+      setNewPassword('');
+    } catch (e: any) {
+      Alert.alert("Error", e.message || "Failed to update password.");
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
   return (
     <ThemedView style={styles.container}>
       <StatusBar style={theme === "light" ? "dark" : "light"} />
@@ -117,8 +140,9 @@ export default function ProfileScreen() {
         <ThemedText style={styles.headerTitle}>Settings</ThemedText>
       </View>
 
-      {/* Account */}
-      <ThemedView style={[styles.card, { backgroundColor: cardColor }]}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+        {/* Account */}
+        <ThemedView style={[styles.card, { backgroundColor: cardColor }]}>
         <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Account</ThemedText>
         <View style={[styles.row, { borderBottomColor: separatorColor }]}>
           <Feather name="user" size={20} style={[styles.rowIcon, { color: secondaryTextColor }]} />
@@ -127,6 +151,11 @@ export default function ProfileScreen() {
             <ThemedText style={{ fontSize: 12, color: secondaryTextColor }}>Synced via Supabase</ThemedText>
           </View>
         </View>
+        <Pressable style={[styles.row, { borderBottomColor: separatorColor }]} onPress={() => setChangePasswordVisible(true)}>
+          <Feather name="lock" size={20} style={[styles.rowIcon, { color: secondaryTextColor }]} />
+          <ThemedText style={styles.rowLabel}>Change Password</ThemedText>
+          <Feather name="chevron-right" size={16} color={secondaryTextColor} />
+        </Pressable>
         <Pressable style={[styles.row, { borderBottomWidth: 0 }]} onPress={handleSignOut}>
           <Feather name="log-out" size={20} style={[styles.rowIcon, { color: '#FF3B30' }]} />
           <ThemedText style={[styles.rowLabel, { color: '#FF3B30' }]}>Sign Out</ThemedText>
@@ -223,6 +252,33 @@ export default function ProfileScreen() {
             <Feather name="chevron-right" size={16} color={secondaryTextColor} />}
         </Pressable>
       </ThemedView>
+      </ScrollView>
+
+      {/* Change Password Modal */}
+      <Modal visible={isChangePasswordVisible} transparent animationType="fade">
+        <KeyboardAvoidingView style={styles.modalContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={[styles.modalContent, { backgroundColor: cardColor }]}>
+            <ThemedText style={styles.modalTitle}>Change Password</ThemedText>
+            <TextInput
+              style={[styles.modalInput, { color: textColor, borderColor: secondaryTextColor + '40', backgroundColor: separatorColor }]}
+              placeholder="New Password (min 6 chars)"
+              placeholderTextColor={secondaryTextColor}
+              secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
+              editable={!isUpdatingPassword}
+            />
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalBtn} onPress={() => { setChangePasswordVisible(false); setNewPassword(''); }} disabled={isUpdatingPassword}>
+                <ThemedText style={{ color: secondaryTextColor, fontWeight: '600' }}>Cancel</ThemedText>
+              </Pressable>
+              <Pressable style={[styles.modalBtn, { backgroundColor: '#007AFF', borderRadius: 8 }]} onPress={submitNewPassword} disabled={isUpdatingPassword}>
+                {isUpdatingPassword ? <ActivityIndicator color="#FFF" size="small" /> : <ThemedText style={{ color: '#FFF', fontWeight: '600' }}>Update</ThemedText>}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </ThemedView>
   );
 }
@@ -237,4 +293,10 @@ const styles = StyleSheet.create({
   rowIcon: { marginRight: 16 },
   rowLabel: { fontSize: 16, flex: 1 },
   statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+  modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { width: '85%', padding: 24, borderRadius: 20, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12 },
+  modalTitle: { fontSize: 20, fontWeight: '700', marginBottom: 20 },
+  modalInput: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 16, marginBottom: 24 },
+  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
+  modalBtn: { paddingVertical: 12, paddingHorizontal: 20 },
 });

@@ -14,7 +14,7 @@ import { useTheme } from '../context/ThemeContext';
 import { Colors } from '../constants/theme';
 
 export default function SignInScreen() {
-  const { signInWithEmail, signUpWithEmail } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
   const { theme } = useTheme();
   const colors = Colors[theme === 'dark' ? 'dark' : 'light'];
   
@@ -91,6 +91,13 @@ export default function SignInScreen() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    const result = await signInWithGoogle();
+    if (result?.error) Alert.alert('Error', result.error);
+    setIsLoading(false);
+  };
+
   if (showWelcome) {
     return (
       <View style={[styles.welcomeContainer, { backgroundColor: colors.background }]}>
@@ -118,45 +125,57 @@ export default function SignInScreen() {
           </ThemedText>
 
           <View style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.tabIconDefault + '30' }]}>
-            <Feather name="mail" size={18} color={colors.tabIconDefault} style={styles.inputIcon} />
-            <TextInput style={[styles.input, { color: colors.text }]} placeholder="Email"
-              placeholderTextColor={colors.tabIconDefault} value={email} onChangeText={setEmail}
-              keyboardType="email-address" autoCapitalize="none" autoCorrect={false} editable={!isLoading} />
-          </View>
+                <Feather name="mail" size={18} color={colors.tabIconDefault} style={styles.inputIcon} />
+                <TextInput style={[styles.input, { color: colors.text }]} placeholder="Email"
+                  placeholderTextColor={colors.tabIconDefault} value={email} onChangeText={setEmail}
+                  keyboardType="email-address" autoCapitalize="none" autoCorrect={false} editable={!isLoading} />
+              </View>
 
-          <View style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.tabIconDefault + '30' }]}>
-            <Feather name="lock" size={18} color={colors.tabIconDefault} style={styles.inputIcon} />
-            <TextInput style={[styles.input, { color: colors.text }]} placeholder="Password"
-              placeholderTextColor={colors.tabIconDefault} value={password} onChangeText={setPassword}
-              secureTextEntry={!showPassword} autoCapitalize="none" editable={!isLoading} />
-            <Pressable onPress={() => setShowPassword(!showPassword)}>
-              <Feather name={showPassword ? 'eye-off' : 'eye'} size={18} color={colors.tabIconDefault} />
-            </Pressable>
-          </View>
+              <View style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.tabIconDefault + '30' }]}>
+                <Feather name="lock" size={18} color={colors.tabIconDefault} style={styles.inputIcon} />
+                <TextInput style={[styles.input, { color: colors.text }]} placeholder="Password"
+                  placeholderTextColor={colors.tabIconDefault} value={password} onChangeText={setPassword}
+                  secureTextEntry={!showPassword} autoCapitalize="none" editable={!isLoading} />
+                <Pressable onPress={() => setShowPassword(!showPassword)}>
+                  <Feather name={showPassword ? 'eye-off' : 'eye'} size={18} color={colors.tabIconDefault} />
+                </Pressable>
+              </View>
 
-          {isSignUp && (
-            <Animated.View style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.tabIconDefault + '30' }]}>
-              <Feather name="shield" size={18} color={colors.tabIconDefault} style={styles.inputIcon} />
-              <TextInput style={[styles.input, { color: colors.text }]} placeholder="Confirm Password"
-                placeholderTextColor={colors.tabIconDefault} value={confirmPassword} onChangeText={setConfirmPassword}
-                secureTextEntry={!showPassword} autoCapitalize="none" editable={!isLoading} />
-            </Animated.View>
-          )}
+              {isSignUp && (
+                <Animated.View style={[styles.inputWrap, { backgroundColor: colors.card, borderColor: colors.tabIconDefault + '30' }]}>
+                  <Feather name="shield" size={18} color={colors.tabIconDefault} style={styles.inputIcon} />
+                  <TextInput style={[styles.input, { color: colors.text }]} placeholder="Confirm Password"
+                    placeholderTextColor={colors.tabIconDefault} value={confirmPassword} onChangeText={setConfirmPassword}
+                    secureTextEntry={!showPassword} autoCapitalize="none" editable={!isLoading} />
+                </Animated.View>
+              )}
 
-          <Pressable style={[styles.primaryBtn, isLoading && { opacity: 0.7 }]}
-            onPress={handleAuth} disabled={isLoading}>
-            {isLoading ? <ActivityIndicator color="#FFF" /> :
-              <ThemedText style={styles.primaryBtnText}>{isSignUp ? 'Sign Up' : 'Sign In'}</ThemedText>}
-          </Pressable>
+              <Pressable style={[styles.primaryBtn, isLoading && { opacity: 0.7 }]}
+                onPress={handleAuth} disabled={isLoading}>
+                {isLoading ? <ActivityIndicator color="#FFF" /> :
+                  <ThemedText style={styles.primaryBtnText}>{isSignUp ? 'Sign Up' : 'Sign In'}</ThemedText>}
+              </Pressable>
 
-          <Pressable style={styles.toggleBtn} onPress={() => setIsSignUp(!isSignUp)} disabled={isLoading}>
-            <ThemedText style={[styles.toggleText, { color: colors.tabIconDefault }]}>
-              {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-              <ThemedText style={{ color: '#007AFF', fontWeight: '600' }}>
-                {isSignUp ? 'Sign In' : 'Sign Up'}
-              </ThemedText>
-            </ThemedText>
-          </Pressable>
+              <View style={styles.dividerWrap}>
+                <View style={[styles.divider, { backgroundColor: colors.tabIconDefault + '40' }]} />
+                <ThemedText style={[styles.dividerText, { color: colors.tabIconDefault }]}>OR</ThemedText>
+                <View style={[styles.divider, { backgroundColor: colors.tabIconDefault + '40' }]} />
+              </View>
+
+              <Pressable style={[styles.googleBtn, { backgroundColor: colors.card, borderColor: colors.tabIconDefault + '30' }]}
+                onPress={handleGoogleSignIn} disabled={isLoading}>
+                <Image source={{ uri: 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png' }} style={styles.googleIcon} />
+                <ThemedText style={[styles.googleBtnText, { color: colors.text }]}>Continue with Google</ThemedText>
+              </Pressable>
+
+              <Pressable style={styles.toggleBtn} onPress={() => setIsSignUp(!isSignUp)} disabled={isLoading}>
+                <ThemedText style={[styles.toggleText, { color: colors.tabIconDefault }]}>
+                  {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+                  <ThemedText style={{ color: '#007AFF', fontWeight: '600' }}>
+                    {isSignUp ? 'Sign In' : 'Sign Up'}
+                  </ThemedText>
+                </ThemedText>
+              </Pressable>
         </Animated.View>
 
       </ScrollView>
@@ -181,4 +200,10 @@ const styles = StyleSheet.create({
   primaryBtnText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
   toggleBtn: { alignItems: 'center', marginTop: 24, paddingVertical: 12 },
   toggleText: { fontSize: 15 },
+  dividerWrap: { flexDirection: 'row', alignItems: 'center', marginVertical: 24 },
+  divider: { flex: 1, height: 1 },
+  dividerText: { marginHorizontal: 16, fontSize: 13, fontWeight: '600' },
+  googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 16, borderWidth: 1 },
+  googleIcon: { width: 24, height: 24, marginRight: 12 },
+  googleBtnText: { fontSize: 16, fontWeight: '600' },
 });
