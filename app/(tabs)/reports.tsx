@@ -640,11 +640,11 @@ export default function ReportsScreen() {
 
             <ThemedView
               style={[
-                styles.viewModeSelector,
+                styles.segmentedControl,
                 { backgroundColor, marginBottom: 16, padding: 2 },
               ]}
             >
-              <View style={styles.selectorRow}>
+              <View style={styles.segmentedRow}>
                 {[
                   { key: "expense", label: "Expenses" },
                   { key: "income", label: "Income" },
@@ -652,7 +652,7 @@ export default function ReportsScreen() {
                   <Pressable
                     key={type.key}
                     style={[
-                      styles.viewModeButton,
+                      styles.segmentedButton,
                       { paddingVertical: 8 },
                       chartDataType === type.key && {
                         backgroundColor: cardColor,
@@ -661,7 +661,7 @@ export default function ReportsScreen() {
                     onPress={() => setChartDataType(type.key as ChartDataType)}
                   >
                     <ThemedText
-                      style={[styles.viewModeText, { fontSize: 13 }]}
+                      style={[styles.segmentedText, { fontSize: 13 }]}
                     >
                       {" "}
                       {type.label}{" "}
@@ -830,6 +830,27 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardTitle: { fontSize: 18, fontWeight: "600", marginBottom: 16 },
+  segmentedControl: {
+    borderRadius: 12,
+    padding: 4,
+    flexDirection: "column",
+    gap: 4,
+  },
+  segmentedRow: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  segmentedButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 8,
+    paddingHorizontal: 5,
+  },
+  segmentedText: { fontSize: 14, fontWeight: "600", flexShrink: 1 },
   viewModeContainer: {
     marginBottom: 4,
   },
