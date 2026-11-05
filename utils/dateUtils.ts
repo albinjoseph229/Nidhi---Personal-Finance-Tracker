@@ -100,6 +100,19 @@ export const parseAndNormalizeToIST = (dateInput: any): string => {
 };
 
 /**
+ * Convert a date picker value's calendar date to an IST ISO string.
+ * The picker date represents a day, not a point in time, so use midday to
+ * avoid timezone conversion moving it to an adjacent day.
+ */
+export const formatCalendarDateAsIST = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}T12:00:00+05:30`;
+};
+
+/**
  * Format date for display in Indian format
  */
 export const formatDateForDisplay = (dateString: string): string => {

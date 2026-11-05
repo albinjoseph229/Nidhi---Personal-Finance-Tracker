@@ -20,9 +20,9 @@ import { useAppData } from "../context/AppContext";
 import { useTheme } from "../context/ThemeContext";
 import { useThemeColor } from "../hooks/use-theme-color";
 import {
+    formatCalendarDateAsIST,
     formatDateForDisplay,
     getISTDate,
-    parseAndNormalizeToIST,
 } from "../utils/dateUtils";
 import { ThemedText } from "./themed-text";
 import { ThemedView } from "./themed-view";
@@ -102,8 +102,7 @@ export function AddTransactionScreen({ type }: { type: "income" | "expense" }) {
       value: date,
       onChange: (event, selectedDate) => {
         if (selectedDate) {
-          const istDate = getISTDate(selectedDate.toISOString());
-          setDate(istDate);
+          setDate(selectedDate);
         }
       },
       mode: "date",
@@ -151,7 +150,7 @@ export function AddTransactionScreen({ type }: { type: "income" | "expense" }) {
     }
 
     setIsSaving(true);
-    const istDateString = parseAndNormalizeToIST(date.toISOString());
+    const istDateString = formatCalendarDateAsIST(date);
     const txData = {
       type: type, // Dynamically set the type
       amount: numericAmount,
@@ -309,7 +308,7 @@ export function AddTransactionScreen({ type }: { type: "income" | "expense" }) {
                 </ThemedText>
                 <ThemedText style={styles.detailValue}>
                   {date
-                    ? formatDateForDisplay(date.toISOString())
+                    ? formatDateForDisplay(formatCalendarDateAsIST(date))
                     : "Select Date"}
                 </ThemedText>
               </View>
