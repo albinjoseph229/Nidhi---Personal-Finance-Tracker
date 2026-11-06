@@ -533,25 +533,25 @@ export default function ReportsScreen() {
             </Pressable>
             {isSummaryExpanded && <View style={styles.summaryContent}>
             <View style={styles.summaryMetrics}>
-              <View style={[styles.summaryMetric, { borderColor: "#34C75940" }]}>
+              <View style={[styles.summaryMetric, { borderColor: "#2F6B4F40" }]}>
                 <View style={styles.summaryMetricLabel}>
-                  <View style={[styles.metricIcon, { backgroundColor: "#34C759" }]}>
+                <View style={[styles.metricIcon, { backgroundColor: "#2F6B4F" }]}>
                     <Feather name="arrow-up" size={13} color="#FFFFFF" />
                   </View>
                   <ThemedText style={[styles.summaryTitle, { color: secondaryTextColor }]}>Income</ThemedText>
                 </View>
-                <ThemedText style={[styles.summaryTotal, { color: "#34C759" }]}>
+                <ThemedText style={[styles.summaryTotal, { color: "#2F6B4F" }]}>
                   {formatAmount(totalIncome)}
                 </ThemedText>
               </View>
-              <View style={[styles.summaryMetric, { borderColor: "#FF3B3040" }]}>
+              <View style={[styles.summaryMetric, { borderColor: "#A94A4A40" }]}>
                 <View style={styles.summaryMetricLabel}>
-                  <View style={[styles.metricIcon, { backgroundColor: "#FF3B30" }]}>
+                  <View style={[styles.metricIcon, { backgroundColor: "#A94A4A" }]}>
                     <Feather name="arrow-down" size={13} color="#FFFFFF" />
                   </View>
                   <ThemedText style={[styles.summaryTitle, { color: secondaryTextColor }]}>Expenses</ThemedText>
                 </View>
-                <ThemedText style={[styles.summaryTotal, { color: "#FF3B30" }]}>
+                <ThemedText style={[styles.summaryTotal, { color: "#A94A4A" }]}>
                   {formatAmount(totalExpenses)}
                 </ThemedText>
               </View>
@@ -630,15 +630,15 @@ export default function ReportsScreen() {
               style={[styles.savingsRow, { borderTopColor: backgroundColor }]}
             >
               <View style={styles.savingsLabelGroup}>
-                <View style={[styles.metricIcon, { backgroundColor: totalIncome - totalExpenses >= 0 ? accentColor : "#FF3B30" }]}>
+                <View style={[styles.metricIcon, { backgroundColor: "#A94A4A" }]}>
                   <Feather name={totalIncome - totalExpenses >= 0 ? "trending-up" : "trending-down"} size={14} color="#FFFFFF" />
                 </View>
                 <View>
                   <ThemedText style={styles.savingsLabel}>Net savings</ThemedText>
-                  <ThemedText style={[styles.savingsCaption, { color: secondaryTextColor }]}>Income minus expenses</ThemedText>
+                  <ThemedText style={[styles.savingsCaption, { color: textColor }]}>Income minus expenses</ThemedText>
                 </View>
               </View>
-              <ThemedText style={[styles.savingsAmount, { color: totalIncome - totalExpenses >= 0 ? accentColor : "#FF3B30" }]}>
+              <ThemedText style={[styles.savingsAmount, { color: "#A94A4A" }]}>
                 {formatAmount(totalIncome - totalExpenses)}
               </ThemedText>
             </View>
@@ -977,7 +977,7 @@ const styles = StyleSheet.create({
   },
   savingsLabelGroup: { flexDirection: "row", alignItems: "center", gap: 9 },
   savingsLabel: { fontSize: 14, fontWeight: "700" },
-  savingsCaption: { fontSize: 11, marginTop: 2 },
+  savingsCaption: { fontSize: 12, fontWeight: "500", marginTop: 2, opacity: 0.8 },
   savingsAmount: { fontSize: 25, fontWeight: "800", marginTop: 4, letterSpacing: -0.4 },
   categoryStatItem: {
     flexDirection: "row",

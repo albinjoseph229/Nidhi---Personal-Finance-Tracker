@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { Link, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -28,6 +28,7 @@ export default function HomeScreen() {
   const { transactions, investments, isSyncing, triggerUploadSync } =
     useAppData();
   const { theme, accentColor } = useTheme();
+  const [selectedWeeklyDate, setSelectedWeeklyDate] = useState<string | null>(null);
 
   const cardColor = useThemeColor({}, "card");
   const textColor = useThemeColor({}, "text");
@@ -41,6 +42,8 @@ export default function HomeScreen() {
     totalSavings,
     totalIncome,
     totalExpenses,
+    monthlyIncome,
+    monthlyExpenses,
     recentTransactions,
     dynamicWeeklyData,
     totalInvestmentValue,
@@ -55,21 +58,12 @@ export default function HomeScreen() {
       .filter((tx) => tx.type === "expense")
       .reduce((sum, tx) => sum + tx.amount, 0);
 
-    const cumulativeSavings = allTimeIncome - allTimeExpenses;
-
-    const investmentValue = investments
-      .filter((inv) => inv.status === "active")
-      .reduce((sum, inv) => sum + inv.currentValue * inv.quantity, 0);
-
-    // --- New: Correct Net Worth calculation ---
-    const correctNetWorth = cumulativeSavings + investmentValue;
-
     const parseTransactionDate = (dateStr: string): Date => {
       let date: Date;
       if (dateStr.includes("T")) {
         date = new Date(dateStr);
       } else if (dateStr.includes("-")) {
-        date = new Date(dateStr + "T00:00:00.000Z");
+        date = new Date(dateStr + "T00:00:00");
       } else {
         date = new Date(dateStr);
       }
@@ -78,7 +72,32 @@ export default function HomeScreen() {
       }
       return date;
     };
-    
+
+    const cumulativeSavings = allTimeIncome - allTimeExpenses;
+
+    const now = new Date();
+    const thisMonthTransactions = transactions.filter((tx) => {
+      const txDate = parseTransactionDate(tx.date);
+      return (
+        !isNaN(txDate.getTime()) &&
+        txDate.getMonth() === now.getMonth() &&
+        txDate.getFullYear() === now.getFullYear()
+      );
+    });
+    const currentMonthIncome = thisMonthTransactions
+      .filter((tx) => tx.type === "income")
+      .reduce((sum, tx) => sum + tx.amount, 0);
+    const currentMonthExpenses = thisMonthTransactions
+      .filter((tx) => tx.type === "expense")
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    const investmentValue = investments
+      .filter((inv) => inv.status === "active")
+      .reduce((sum, inv) => sum + inv.currentValue * inv.quantity, 0);
+
+    // --- New: Correct Net Worth calculation ---
+    const correctNetWorth = cumulativeSavings + investmentValue;
+
     // --- Other calculations (Recent, Weekly) remain the same ---
     const recent = [...transactions]
       .sort(
@@ -127,6 +146,8 @@ export default function HomeScreen() {
       totalSavings: cumulativeSavings,
       totalIncome: allTimeIncome,
       totalExpenses: allTimeExpenses,
+      monthlyIncome: currentMonthIncome,
+      monthlyExpenses: currentMonthExpenses,
       recentTransactions: recent,
       dynamicWeeklyData: weekData,
       totalInvestmentValue: investmentValue,
@@ -284,6 +305,40 @@ export default function HomeScreen() {
         >
           <View style={styles.sectionHeader}>
             <View>
+              <ThemedText style={styles.sectionHeading}>This month</ThemedText>
+              <ThemedText style={[styles.sectionCaption, { color: secondaryTextColor }]}>
+                {new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric" }).format(new Date())}
+              </ThemedText>
+            </View>
+            <Feather name="calendar" size={20} color={secondaryTextColor} />
+          </View>
+          <View style={styles.breakdownRows}>
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLabel}>
+                <View style={[styles.breakdownDot, { backgroundColor: "#34C759" }]} />
+                <ThemedText>Income</ThemedText>
+              </View>
+              <ThemedText style={[styles.breakdownValue, { color: "#34C759" }]}>
+                {formatAmount(monthlyIncome)}
+              </ThemedText>
+            </View>
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLabel}>
+                <View style={[styles.breakdownDot, { backgroundColor: "#FF6B6B" }]} />
+                <ThemedText>Expenses</ThemedText>
+              </View>
+              <ThemedText style={styles.breakdownValue}>
+                {formatAmount(monthlyExpenses)}
+              </ThemedText>
+            </View>
+          </View>
+        </ThemedView>
+
+        <ThemedView
+          style={[styles.breakdownCard, { backgroundColor: cardColor, shadowColor: textColor }]}
+        >
+          <View style={styles.sectionHeader}>
+            <View>
               <ThemedText style={styles.sectionHeading}>All-time breakdown</ThemedText>
               <ThemedText style={[styles.sectionCaption, { color: secondaryTextColor }]}>
                 Income and spending at a glance
@@ -331,8 +386,20 @@ export default function HomeScreen() {
                 1
               );
               const barHeight = item.amount > 0 ? Math.max((item.amount / maxAmount) * 80, 8) : 4;
+              const isSelected = selectedWeeklyDate === item.date;
               return (
-                <View key={item.date} style={styles.barWrapper}>
+                <Pressable
+                  key={item.date}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.day} spending ${formatAmount(item.amount)}`}
+                  onPress={() => setSelectedWeeklyDate(isSelected ? null : item.date)}
+                  style={styles.barWrapper}
+                >
+                  {isSelected && (
+                    <ThemedText style={[styles.selectedBarAmount, { color: accentColor }]}>
+                      {formatAmount(item.amount)}
+                    </ThemedText>
+                  )}
                   <View
                     style={[
                       styles.bar,
@@ -342,7 +409,7 @@ export default function HomeScreen() {
                   <ThemedText style={[styles.barLabel, { color: secondaryTextColor }]}>
                     {item.day}
                   </ThemedText>
-                </View>
+                </Pressable>
               );
             })}
           </View>
@@ -555,6 +622,7 @@ const styles = StyleSheet.create({
   },
   barWrapper: { alignItems: "center" },
   bar: { width: 14, borderRadius: 7 },
+  selectedBarAmount: { fontSize: 10, fontWeight: "700", marginBottom: 4 },
   barLabel: { marginTop: 8, fontSize: 12 },
   upcomingSection: {
     borderRadius: 20,
