@@ -8,22 +8,19 @@ import { useTheme } from '../../context/ThemeContext';
 import { useThemeColor } from '../../hooks/use-theme-color';
 
 const AddTransactionButton = ({ onPress }: { onPress: () => void }) => {
-  const { theme } = useTheme();
-  // ✅ Call all hooks unconditionally at the top.
-  const cardThemeColor = useThemeColor({}, 'card');
-  const textThemeColor = useThemeColor({}, 'text');
+  const { theme, accentColor } = useTheme();
   const shadowColor = useThemeColor({}, 'text');
 
   // ✅ Use the *results* of the hooks in your conditional logic.
-  const buttonBackgroundColor = theme === 'light' ? '#4A90E2' : cardThemeColor;
-  const iconColor = theme === 'light' ? '#FFFFFF' : textThemeColor;
+  const buttonBackgroundColor = accentColor;
+  const iconColor = '#FFFFFF';
 
   return (
     <TouchableOpacity
       onPress={onPress}
       style={{
         position: 'absolute',
-        bottom: 20, // keeps it floating above tab bar
+        bottom: 24,
         alignSelf: 'center', // centers horizontally
         justifyContent: 'center',
         alignItems: 'center',
@@ -33,7 +30,7 @@ const AddTransactionButton = ({ onPress }: { onPress: () => void }) => {
         backgroundColor: buttonBackgroundColor,
         shadowColor: shadowColor,
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: theme === 'light' ? 0.25 : 0.4,
+        shadowOpacity: theme === 'light' ? 0.22 : 0.35,
         shadowRadius: 3.84,
         elevation: 5,
       }}>
@@ -43,9 +40,8 @@ const AddTransactionButton = ({ onPress }: { onPress: () => void }) => {
 };
 
 export default function TabLayout() {
-  const { theme } = useTheme();
+  const { theme, accentColor } = useTheme();
   const cardColor = useThemeColor({}, 'card');
-  const activeTabColor = useThemeColor({}, 'text');
   const inactiveTabColor = useThemeColor({}, 'tabIconDefault');
   const shadowColor = useThemeColor({}, 'text');
   const [isModalVisible, setModalVisible] = useState(false);
@@ -55,8 +51,8 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarShowLabel: false,
-          tabBarActiveTintColor: activeTabColor,
+          tabBarShowLabel: true,
+          tabBarActiveTintColor: accentColor,
           tabBarInactiveTintColor: inactiveTabColor,
           tabBarStyle: {
             position: 'absolute',
@@ -65,12 +61,21 @@ export default function TabLayout() {
             right: 0,
             elevation: 0,
             backgroundColor: cardColor,
-            height: 70,
+            height: 76,
+            paddingBottom: 10,
             borderTopWidth: 0,
             shadowColor: shadowColor,
             shadowOffset: { width: 0, height: -2 },
             shadowOpacity: theme === 'light' ? 0.1 : 0,
             shadowRadius: 3.84,
+          },
+          tabBarLabelStyle: {
+            fontSize: 10,
+            fontWeight: '600',
+            marginTop: 2,
+          },
+          tabBarItemStyle: {
+            paddingTop: 7,
           },
         }}>
         <Tabs.Screen

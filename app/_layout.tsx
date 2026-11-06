@@ -1,7 +1,9 @@
 // app/_layout.tsx
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
+import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LockScreen } from '../components/LockScreen';
 import { Colors, type Theme } from '../constants/theme';
@@ -11,11 +13,35 @@ import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import SignInScreen from './sign-in';
 
 function AppContent() {
+  const router = useRouter();
   const { isAppLockEnabled, isAuthenticated, session, isAuthLoading } = useAuth();
   const { theme, isLoading } = useTheme();
   
   const currentTheme: Theme = theme === 'dark' ? 'dark' : 'light';
   const backgroundColor = Colors[currentTheme].background;
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+      }),
+    });
+
+    const responseSubscription =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        const route = response.notification.request.content.data?.route;
+        if (route === '/add-expense') {
+          router.push('/add-expense');
+        }
+      });
+
+    return () => responseSubscription.remove();
+  }, [router]);
   
   // Show loading screen while auth/theme is loading
   if (isLoading || isAuthLoading) {

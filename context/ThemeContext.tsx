@@ -9,10 +9,21 @@ interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
   setTheme: (theme: Theme) => void;
+  accentColor: string;
+  setAccentColor: (color: string) => void;
   isLoading: boolean;
 }
 
 const THEME_STORAGE_KEY = '@expense_tracker_theme';
+const ACCENT_STORAGE_KEY = '@expense_tracker_accent_color';
+export const ACCENT_COLORS = [
+  '#2F5D50',
+  '#345B73',
+  '#4E5A3D',
+  '#6A4F3B',
+  '#5C435E',
+  '#46515A',
+];
 
 // Create the context with a default value
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -21,6 +32,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const systemTheme = useColorScheme() ?? 'light';
   const [theme, setThemeState] = useState<Theme>(systemTheme);
+  const [accentColor, setAccentColorState] = useState(ACCENT_COLORS[0]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -28,11 +40,15 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     const loadTheme = async () => {
       try {
         const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+        const savedAccent = await AsyncStorage.getItem(ACCENT_STORAGE_KEY);
         if (savedTheme && ['light', 'dark'].includes(savedTheme)) {
           setThemeState(savedTheme as Theme);
         } else {
           // If no saved theme, use system theme
           setThemeState(systemTheme);
+        }
+        if (savedAccent && ACCENT_COLORS.includes(savedAccent)) {
+          setAccentColorState(savedAccent);
         }
       } catch (error) {
         console.error('Error loading theme:', error);
@@ -79,8 +95,14 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     setTheme(newTheme);
   };
 
+  const setAccentColor = async (color: string) => {
+    if (!ACCENT_COLORS.includes(color)) return;
+    setAccentColorState(color);
+    await AsyncStorage.setItem(ACCENT_STORAGE_KEY, color);
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme, isLoading }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme, accentColor, setAccentColor, isLoading }}>
       {children}
     </ThemeContext.Provider>
   );

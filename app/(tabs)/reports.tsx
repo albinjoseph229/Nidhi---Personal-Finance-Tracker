@@ -13,7 +13,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { BarChart, LineChart, PieChart } from "react-native-chart-kit";
+import { LineChart, PieChart } from "react-native-chart-kit";
 
 // Import themed components and hooks
 import { ThemedText } from "../../components/themed-text";
@@ -44,22 +44,21 @@ const CATEGORY_GROUPS: { [key: string]: string[] } = {
   "Bills & Utilities": ["Bills", "Electricity", "Water", "Internet", "Phone"],
   "Health & Medical": ["Health", "Medical", "Pharmacy", "Doctor", "Hospital"],
   Entertainment: ["Leisure", "Entertainment", "Movies", "Games", "Sports"],
-  "Home & Garden": ["Home", "Furniture", "Garden", "Maintenance"],
-  Education: ["Education", "Books", "Courses", "School", "College"],
+  "Home & Garden": ["Home", "Rent", "Furniture", "Garden", "Maintenance"],
   Others: ["Other", "Miscellaneous", "Cash", "ATM"],
 };
 
 const CHART_COLORS = [
-  "#FF6B6B",
-  "#4ECDC4",
-  "#45B7D1",
-  "#96CEB4",
-  "#FECA57",
-  "#FF9FF3",
-  "#54A0FF",
-  "#5F27CD",
-  "#00D2D3",
-  "#FF3838",
+  "#6B9080",
+  "#A4B8A7",
+  "#829AB1",
+  "#C5A880",
+  "#A58FAA",
+  "#B98B82",
+  "#7E9A9A",
+  "#9AA6B2",
+  "#B2A58E",
+  "#879B87",
 ];
 type ViewMode = "current" | "yearly" | "monthly" | "investments";
 type ChartType = "pie" | "bar";
@@ -71,16 +70,17 @@ export default function ReportsScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>("current");
   const [chartType, setChartType] = useState<ChartType>("pie");
   const [chartDataType, setChartDataType] = useState<ChartDataType>("expense");
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const { theme } = useTheme();
+  const { theme, accentColor } = useTheme();
 
   // Fetch theme colors dynamically
   const cardColor = useThemeColor({}, "card");
   const textColor = useThemeColor({}, "text");
   const secondaryTextColor = useThemeColor({}, "tabIconDefault");
   const backgroundColor = useThemeColor({}, "background");
-  const activeColor = theme === "light" ? "#1C1C1E" : textColor;
-  const activeTextColor = theme === "light" ? "#FFFFFF" : "#121212";
+  const activeColor = accentColor;
+  const activeTextColor = "#FFFFFF";
 
   const groupCategory = (category: string): string => {
     for (const [group, categories] of Object.entries(CATEGORY_GROUPS)) {
@@ -256,21 +256,6 @@ export default function ReportsScreen() {
     return sourceData[chartDataType];
   };
 
-  const getBarChartData = () => {
-    const data = getCurrentChartData();
-    const sortedData = [...data]
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 5);
-    return {
-      labels: sortedData.map((item) => {
-        // Truncate labels to prevent cutoff
-        const label = item.name;
-        return label.length > 8 ? label.substring(0, 8) + "..." : label;
-      }),
-      datasets: [{ data: sortedData.map((item) => item.amount) }],
-    };
-  };
-
   const onRefresh = async () => await triggerUploadSync();
   const formatAmount = (amount: number) =>
     new Intl.NumberFormat("en-IN", {
@@ -310,7 +295,13 @@ export default function ReportsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
+          <ThemedText style={[styles.eyebrow, { color: secondaryTextColor }]}>
+            INSIGHTS
+          </ThemedText>
           <ThemedText style={styles.headerTitle}>Reports</ThemedText>
+          <ThemedText style={[styles.headerSubtitle, { color: secondaryTextColor }]}>
+            Understand where your money is going
+          </ThemedText>
         </View>
 
         <ThemedView
@@ -437,7 +428,7 @@ export default function ReportsScreen() {
             <View style={styles.budgetHeader}>
               <ThemedText style={styles.cardTitle}>Monthly Budget</ThemedText>
               <Link href="/set-budget" asChild>
-                <ThemedText style={styles.linkText}>
+                <ThemedText style={[styles.linkText, { color: activeColor }]}>
                   {" "}
                   {monthlyBudget > 0 ? "Edit" : "Set Budget"}{" "}
                 </ThemedText>
@@ -522,16 +513,54 @@ export default function ReportsScreen() {
               { backgroundColor: cardColor, shadowColor: textColor },
             ]}
           >
-            <ThemedText style={styles.cardTitle}>
-              {viewMode === "current"
-                ? "This Month's Summary"
-                : `${selectedYear} Summary`}
-            </ThemedText>
-            <View style={styles.summarySection}>
-              <ThemedText style={styles.summaryTitle}>Income</ThemedText>
-              <ThemedText style={[styles.summaryTotal, { color: "#34C759" }]}>
-                {formatAmount(totalIncome)}
-              </ThemedText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${isSummaryExpanded ? "Collapse" : "Expand"} monthly summary`}
+              onPress={() => setIsSummaryExpanded((expanded) => !expanded)}
+              style={styles.summaryCardHeader}
+            >
+              <View style={styles.collapsibleTitle}>
+                <ThemedText style={styles.cardTitle}>
+                  {viewMode === "current"
+                    ? "This month's summary"
+                    : `${selectedYear} summary`}
+                </ThemedText>
+                <ThemedText style={[styles.cardCaption, { color: secondaryTextColor }]}>
+                  A quick view of your cash flow
+                </ThemedText>
+              </View>
+              <Feather name={isSummaryExpanded ? "chevron-up" : "chevron-down"} size={19} color={secondaryTextColor} />
+            </Pressable>
+            {isSummaryExpanded && <View style={styles.summaryContent}>
+            <View style={styles.summaryMetrics}>
+              <View style={[styles.summaryMetric, { borderColor: "#34C75940" }]}>
+                <View style={styles.summaryMetricLabel}>
+                  <View style={[styles.metricIcon, { backgroundColor: "#34C759" }]}>
+                    <Feather name="arrow-up" size={13} color="#FFFFFF" />
+                  </View>
+                  <ThemedText style={[styles.summaryTitle, { color: secondaryTextColor }]}>Income</ThemedText>
+                </View>
+                <ThemedText style={[styles.summaryTotal, { color: "#34C759" }]}>
+                  {formatAmount(totalIncome)}
+                </ThemedText>
+              </View>
+              <View style={[styles.summaryMetric, { borderColor: "#FF3B3040" }]}>
+                <View style={styles.summaryMetricLabel}>
+                  <View style={[styles.metricIcon, { backgroundColor: "#FF3B30" }]}>
+                    <Feather name="arrow-down" size={13} color="#FFFFFF" />
+                  </View>
+                  <ThemedText style={[styles.summaryTitle, { color: secondaryTextColor }]}>Expenses</ThemedText>
+                </View>
+                <ThemedText style={[styles.summaryTotal, { color: "#FF3B30" }]}>
+                  {formatAmount(totalExpenses)}
+                </ThemedText>
+              </View>
+            </View>
+            <View style={[styles.summarySection, { borderTopColor: backgroundColor }]}>
+              <View style={styles.categorySectionHeader}>
+                <ThemedText style={styles.summaryTitle}>Income categories</ThemedText>
+                <ThemedText style={[styles.categoryHint, { color: secondaryTextColor }]}>Top 3</ThemedText>
+              </View>
               {(viewMode === "current"
                 ? currentMonthIncomeData
                 : yearlyIncomeData
@@ -540,7 +569,7 @@ export default function ReportsScreen() {
                 .map((item) => (
                   <View
                     key={`inc-${item.name}`}
-                    style={styles.categoryStatItem}
+                    style={[styles.categoryStatItem, { borderBottomColor: backgroundColor }]}
                   >
                     <View
                       style={[
@@ -562,11 +591,11 @@ export default function ReportsScreen() {
                   </View>
                 ))}
             </View>
-            <View style={[styles.summarySection, { marginTop: 16 }]}>
-              <ThemedText style={styles.summaryTitle}>Expenses</ThemedText>
-              <ThemedText style={[styles.summaryTotal, { color: "#FF3B30" }]}>
-                {formatAmount(totalExpenses)}
-              </ThemedText>
+            <View style={[styles.summarySection, styles.expenseSummarySection, { borderTopColor: backgroundColor }]}>
+              <View style={styles.categorySectionHeader}>
+                <ThemedText style={styles.summaryTitle}>Expense categories</ThemedText>
+                <ThemedText style={[styles.categoryHint, { color: secondaryTextColor }]}>Top 3</ThemedText>
+              </View>
               {(viewMode === "current"
                 ? currentMonthExpenseData
                 : yearlyExpenseData
@@ -575,7 +604,7 @@ export default function ReportsScreen() {
                 .map((item) => (
                   <View
                     key={`exp-${item.name}`}
-                    style={styles.categoryStatItem}
+                    style={[styles.categoryStatItem, { borderBottomColor: backgroundColor }]}
                   >
                     <View
                       style={[
@@ -600,11 +629,20 @@ export default function ReportsScreen() {
             <View
               style={[styles.savingsRow, { borderTopColor: backgroundColor }]}
             >
-              <ThemedText style={styles.savingsLabel}>Net Savings</ThemedText>
-              <ThemedText style={styles.savingsAmount}>
+              <View style={styles.savingsLabelGroup}>
+                <View style={[styles.metricIcon, { backgroundColor: totalIncome - totalExpenses >= 0 ? accentColor : "#FF3B30" }]}>
+                  <Feather name={totalIncome - totalExpenses >= 0 ? "trending-up" : "trending-down"} size={14} color="#FFFFFF" />
+                </View>
+                <View>
+                  <ThemedText style={styles.savingsLabel}>Net savings</ThemedText>
+                  <ThemedText style={[styles.savingsCaption, { color: secondaryTextColor }]}>Income minus expenses</ThemedText>
+                </View>
+              </View>
+              <ThemedText style={[styles.savingsAmount, { color: totalIncome - totalExpenses >= 0 ? accentColor : "#FF3B30" }]}>
                 {formatAmount(totalIncome - totalExpenses)}
               </ThemedText>
             </View>
+            </View>}
           </ThemedView>
         )}
 
@@ -616,7 +654,12 @@ export default function ReportsScreen() {
             ]}
           >
             <View style={styles.chartHeader}>
-              <ThemedText style={styles.cardTitle}>Visual Breakdown</ThemedText>
+              <View style={styles.collapsibleTitle}>
+                <ThemedText style={styles.cardTitle}>Visual breakdown</ThemedText>
+                <ThemedText style={[styles.cardCaption, { color: secondaryTextColor }]}>
+                  Compare income and expenses by category
+                </ThemedText>
+              </View>
               <View style={styles.chartTypeSelector}>
                 {[
                   { key: "pie", icon: "pie-chart" },
@@ -630,7 +673,7 @@ export default function ReportsScreen() {
                       name={type.icon as any}
                       size={18}
                       color={
-                        chartType === type.key ? textColor : secondaryTextColor
+                        chartType === type.key ? accentColor : secondaryTextColor
                       }
                     />
                   </Pressable>
@@ -656,12 +699,20 @@ export default function ReportsScreen() {
                       { paddingVertical: 8 },
                       chartDataType === type.key && {
                         backgroundColor: cardColor,
+                        shadowColor: textColor,
+                        shadowOpacity: 0.06,
+                        shadowRadius: 4,
+                        elevation: 1,
                       },
                     ]}
                     onPress={() => setChartDataType(type.key as ChartDataType)}
                   >
                     <ThemedText
-                      style={[styles.segmentedText, { fontSize: 13 }]}
+                      style={[
+                        styles.segmentedText,
+                        { fontSize: 13 },
+                        chartDataType === type.key && { color: accentColor },
+                      ]}
                     >
                       {" "}
                       {type.label}{" "}
@@ -709,29 +760,38 @@ export default function ReportsScreen() {
                     </View>
                   </>
                 ) : (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.barChartScrollContainer}
-                  >
-                    <View style={styles.barChartContainer}>
-                      <BarChart
-                        data={getBarChartData()}
-                        width={Math.max(
-                          screenWidth - 40,
-                          getBarChartData().labels.length * 80
-                        )}
-                        height={300}
-                        chartConfig={chartConfig}
-                        yAxisLabel=""
-                        yAxisSuffix=""
-                        style={styles.chart}
-                        fromZero
-                        showBarTops={false}
-                        showValuesOnTopOfBars={false}
-                      />
-                    </View>
-                  </ScrollView>
+                  <View style={styles.rankBarList}>
+                    {getCurrentChartData()
+                      .slice()
+                      .sort((a, b) => b.amount - a.amount)
+                      .slice(0, 5)
+                      .map((item) => {
+                        const maxAmount = Math.max(
+                          ...getCurrentChartData().map((entry) => entry.amount),
+                          1
+                        );
+                        return (
+                          <View key={item.name} style={styles.rankBarRow}>
+                            <View style={styles.rankBarHeader}>
+                              <ThemedText style={styles.rankBarLabel} numberOfLines={1}>
+                                {item.name}
+                              </ThemedText>
+                              <ThemedText style={[styles.rankBarValue, { color: secondaryTextColor }]}>
+                                {formatAmount(item.amount)}
+                              </ThemedText>
+                            </View>
+                            <View style={[styles.rankBarTrack, { backgroundColor }]}>
+                              <View
+                                style={[
+                                  styles.rankBarFill,
+                                  { width: `${Math.max((item.amount / maxAmount) * 100, 4)}%`, backgroundColor: item.color },
+                                ]}
+                              />
+                            </View>
+                          </View>
+                        );
+                      })}
+                  </View>
                 )}
               </View>
             ) : (
@@ -815,21 +875,26 @@ export default function ReportsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  contentContainer: { paddingBottom: 100 },
+  contentContainer: { paddingBottom: 100, paddingTop: 4 },
   loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 20 },
-  headerTitle: { fontSize: 28, fontWeight: "bold" },
+  header: { paddingTop: 42, paddingHorizontal: 20, paddingBottom: 18 },
+  eyebrow: { fontSize: 11, fontWeight: "700", letterSpacing: 1.2, marginBottom: 4 },
+  headerTitle: { fontSize: 30, fontWeight: "800", letterSpacing: -0.5 },
+  headerSubtitle: { fontSize: 13, marginTop: 5 },
   card: {
-    borderRadius: 20,
-    marginHorizontal: 20,
-    marginBottom: 20,
-    padding: 24,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 2,
+    borderRadius: 18,
+    marginHorizontal: 18,
+    marginBottom: 14,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "rgba(125, 137, 133, 0.12)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.025,
+    shadowRadius: 8,
+    elevation: 1,
   },
-  cardTitle: { fontSize: 18, fontWeight: "600", marginBottom: 16 },
+  cardTitle: { fontSize: 16, fontWeight: "700", marginBottom: 10, letterSpacing: -0.1 },
+  cardCaption: { fontSize: 12, marginTop: -5, marginBottom: 12, lineHeight: 17 },
   segmentedControl: {
     borderRadius: 12,
     padding: 4,
@@ -852,19 +917,19 @@ const styles = StyleSheet.create({
   },
   segmentedText: { fontSize: 14, fontWeight: "600", flexShrink: 1 },
   viewModeContainer: {
-    marginBottom: 4,
+    marginBottom: 2,
   },
   viewModePill: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 24,
-    gap: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    gap: 6,
   },
-  viewModePillText: { fontSize: 14, fontWeight: "600" },
-  yearSelector: { marginTop: 16 },
+  viewModePillText: { fontSize: 12, fontWeight: "700" },
+  yearSelector: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: "rgba(125, 137, 133, 0.14)" },
   yearButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -876,72 +941,88 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 4,
   },
-  linkText: { color: "#007AFF", fontWeight: "500", fontSize: 16 },
+  linkText: { fontWeight: "700", fontSize: 13 },
   budgetStats: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 16,
+    marginBottom: 14,
+    paddingVertical: 6,
   },
   budgetStatItem: { alignItems: "center", flex: 1, paddingHorizontal: 5 },
-  budgetStatLabel: { fontSize: 14, marginBottom: 4 },
-  budgetStatValue: { fontSize: 18, fontWeight: "600", flexShrink: 1 },
-  progressBar: { height: 8, borderRadius: 4, overflow: "hidden" },
+  budgetStatLabel: { fontSize: 11, marginBottom: 5, fontWeight: "600", letterSpacing: 0.2 },
+  budgetStatValue: { fontSize: 16, fontWeight: "700", flexShrink: 1 },
+  progressBar: { height: 6, borderRadius: 3, overflow: "hidden" },
   progressFill: { height: "100%" },
-  summarySection: { width: "100%", marginBottom: 16 },
-  summaryTitle: { fontSize: 16, fontWeight: "600", marginBottom: 4 },
-  summaryTotal: { fontSize: 24, fontWeight: "700", marginBottom: 8 },
+  summaryCardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingBottom: 2 },
+  collapsibleTitle: { flex: 1 },
+  summaryContent: { marginTop: 4 },
+  summaryMetrics: { flexDirection: "row", gap: 10, marginTop: 8, marginBottom: 2 },
+  summaryMetric: { flex: 1, borderRadius: 12, padding: 12, borderWidth: 1 },
+  summaryMetricLabel: { flexDirection: "row", alignItems: "center", gap: 7 },
+  metricIcon: { width: 22, height: 22, borderRadius: 7, alignItems: "center", justifyContent: "center" },
+  summarySection: { width: "100%", marginTop: 16, paddingTop: 14, borderTopWidth: 1 },
+  expenseSummarySection: { marginTop: 4 },
+  categorySectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 5 },
+  summaryTitle: { fontSize: 12, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase" },
+  categoryHint: { fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+  summaryTotal: { fontSize: 21, fontWeight: "800", marginTop: 10, letterSpacing: -0.4 },
   savingsRow: {
     borderTopWidth: 1,
     paddingTop: 16,
-    marginTop: 8,
+    marginTop: 10,
     alignItems: "center",
     width: "100%",
   },
-  savingsLabel: { fontSize: 16, fontWeight: "500" },
-  savingsAmount: { fontSize: 28, fontWeight: "bold", marginTop: 4 },
+  savingsLabelGroup: { flexDirection: "row", alignItems: "center", gap: 9 },
+  savingsLabel: { fontSize: 14, fontWeight: "700" },
+  savingsCaption: { fontSize: 11, marginTop: 2 },
+  savingsAmount: { fontSize: 25, fontWeight: "800", marginTop: 4, letterSpacing: -0.4 },
   categoryStatItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 4,
+    paddingVertical: 7,
+    borderBottomWidth: 1,
   },
-  categoryDot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
-  categoryName: { flex: 1, fontSize: 15, fontWeight: "500" },
-  categoryAmount: { fontSize: 15, fontWeight: "500" },
+  categoryDot: { width: 7, height: 7, borderRadius: 4, marginRight: 10 },
+  categoryName: { flex: 1, fontSize: 14, fontWeight: "600" },
+  categoryAmount: { fontSize: 13, fontWeight: "600" },
   chartHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  chartTypeSelector: { flexDirection: "row", gap: 16, marginBottom: 16 },
-  chartContainer: { alignItems: "center", marginTop: 16 },
+  headerChevron: { marginHorizontal: 8 },
+  chartTypeSelector: { flexDirection: "row", gap: 4, marginBottom: 10, backgroundColor: "rgba(125, 137, 133, 0.1)", borderRadius: 9, padding: 3 },
+  chartContainer: { alignItems: "center", marginTop: 10 },
   pieChartContainer: {
     width: "100%",
     alignItems: "center",
   },
-  barChartScrollContainer: {
-    paddingHorizontal: 10,
-  },
-  barChartContainer: {
-    alignItems: "center",
-    paddingHorizontal: 10,
-  },
-  chart: { borderRadius: 20 },
-  noDataContainer: { alignItems: "center", paddingVertical: 40 },
-  noDataText: { fontSize: 16, fontWeight: "600", marginTop: 16 },
+  rankBarList: { width: "100%", gap: 14, marginTop: 6 },
+  rankBarRow: { width: "100%" },
+  rankBarHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
+  rankBarLabel: { flex: 1, fontSize: 13, fontWeight: "600", marginRight: 12 },
+  rankBarValue: { fontSize: 12, fontWeight: "600" },
+  rankBarTrack: { height: 8, borderRadius: 4, overflow: "hidden" },
+  rankBarFill: { height: "100%", borderRadius: 4 },
+  chart: { borderRadius: 14 },
+  noDataContainer: { alignItems: "center", paddingVertical: 34 },
+  noDataText: { fontSize: 15, fontWeight: "600", marginTop: 14 },
   legendContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
-    marginTop: 20,
-    paddingHorizontal: 10,
+    marginTop: 16,
+    paddingHorizontal: 4,
   },
   legendItem: {
     flexDirection: "row",
     alignItems: "center",
     width: "50%",
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  legendDot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
-  legendText: { fontSize: 14, flexShrink: 1 },
+  legendDot: { width: 7, height: 7, borderRadius: 4, marginRight: 7 },
+  legendText: { fontSize: 13, flexShrink: 1 },
 });

@@ -11,15 +11,20 @@ import { ThemedText } from "../components/themed-text";
 import { ThemedView } from "../components/themed-view";
 import { useAppData } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../context/ThemeContext";
+import { ACCENT_COLORS, useTheme } from "../context/ThemeContext";
 import { useThemeColor } from "../hooks/use-theme-color";
 import { hasAIKey, getAIConfig } from "../lib/aiKeyStore";
 import { supabase } from "../lib/supabase";
 import { generateReportWithGemini } from "../utils/geminiApi";
 import { generateFinancialReport as generatePdfReport } from "../utils/pdfExport";
+import {
+  cancelDailyExpenseReminder,
+  isDailyExpenseReminderEnabled,
+  scheduleDailyExpenseReminder,
+} from "../lib/dailyExpenseReminder";
 
 export default function ProfileScreen() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, accentColor, setAccentColor } = useTheme();
   const { isSyncing, triggerFullSync, transactions, investments } = useAppData();
   const { isAppLockEnabled, toggleAppLock, signOut, user } = useAuth();
   const router = useRouter();
@@ -31,6 +36,8 @@ export default function ProfileScreen() {
   const [lastAiReportTime, setLastAiReportTime] = useState<string | null>(null);
   const [aiConfigured, setAiConfigured] = useState(false);
   const [aiProviderName, setAiProviderName] = useState<string | null>(null);
+  const [dailyExpenseReminderEnabled, setDailyExpenseReminderEnabled] = useState(false);
+  const [isUpdatingReminder, setIsUpdatingReminder] = useState(false);
 
   const [isChangePasswordVisible, setChangePasswordVisible] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -54,9 +61,31 @@ export default function ProfileScreen() {
       setAiConfigured(configured);
       const config = await getAIConfig();
       setAiProviderName(config.provider === 'gemini' ? 'Gemini' : config.provider === 'chatgpt' ? 'ChatGPT' : null);
+      setDailyExpenseReminderEnabled(await isDailyExpenseReminderEnabled());
     };
     loadSettingsData();
   }, [isSyncing]);
+
+  const handleDailyExpenseReminderChange = async (enabled: boolean) => {
+    setIsUpdatingReminder(true);
+    try {
+      const updated = enabled
+        ? await scheduleDailyExpenseReminder()
+        : (await cancelDailyExpenseReminder(), false);
+      setDailyExpenseReminderEnabled(enabled && updated !== false);
+      if (enabled && !updated) {
+        Alert.alert(
+          "Notifications are off",
+          "Allow notifications in your device settings to receive the 8:00 PM reminder."
+        );
+      }
+    } catch (error) {
+      console.error("Failed to update daily expense reminder:", error);
+      Alert.alert("Error", "Could not update the daily expense reminder.");
+    } finally {
+      setIsUpdatingReminder(false);
+    }
+  };
 
   const handleGenerateAiReport = async () => {
     if (!aiConfigured) {
@@ -172,6 +201,26 @@ export default function ProfileScreen() {
           <Switch value={theme === "dark"} onValueChange={toggleTheme}
             trackColor={{ false: "#E9E9EA", true: "#34C759" }} thumbColor="#FFF" />
         </View>
+        <View style={[styles.row, { borderBottomWidth: 0, alignItems: 'flex-start' }]}>
+          <Feather name="droplet" size={20} style={[styles.rowIcon, { color: accentColor }]} />
+          <View style={{ flex: 1 }}>
+            <ThemedText style={styles.rowLabel}>Accent color</ThemedText>
+            <ThemedText style={{ fontSize: 12, color: secondaryTextColor }}>Personalize the app highlight color</ThemedText>
+            <View style={styles.colorOptions}>
+              {ACCENT_COLORS.map((color) => (
+                <Pressable
+                  key={color}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Select accent color ${color}`}
+                  onPress={() => setAccentColor(color)}
+                  style={[styles.colorOption, { backgroundColor: color }, accentColor === color && styles.selectedColorOption]}
+                >
+                  {accentColor === color && <Feather name="check" size={14} color="#FFFFFF" />}
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </View>
       </ThemedView>
 
       {/* Security */}
@@ -182,6 +231,26 @@ export default function ProfileScreen() {
           <ThemedText style={styles.rowLabel}>App Lock</ThemedText>
           <Switch value={isAppLockEnabled} onValueChange={toggleAppLock}
             trackColor={{ false: "#E9E9EA", true: "#34C759" }} thumbColor="#FFF" />
+        </View>
+      </ThemedView>
+
+      <ThemedView style={[styles.card, { backgroundColor: cardColor }]}>
+        <ThemedText style={[styles.cardTitle, { color: secondaryTextColor }]}>Reminders</ThemedText>
+        <View style={[styles.row, { borderBottomWidth: 0 }]}>
+          <Feather name="bell" size={20} style={[styles.rowIcon, { color: secondaryTextColor }]} />
+          <View style={{ flex: 1 }}>
+            <ThemedText style={styles.rowLabel}>Daily expense reminder</ThemedText>
+            <ThemedText style={{ fontSize: 12, color: secondaryTextColor }}>
+              Every day at 8:00 PM
+            </ThemedText>
+          </View>
+          <Switch
+            value={dailyExpenseReminderEnabled}
+            onValueChange={handleDailyExpenseReminderChange}
+            disabled={isUpdatingReminder}
+            trackColor={{ false: "#E9E9EA", true: "#34C759" }}
+            thumbColor="#FFF"
+          />
         </View>
       </ThemedView>
 
@@ -292,6 +361,9 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1 },
   rowIcon: { marginRight: 16 },
   rowLabel: { fontSize: 16, flex: 1 },
+  colorOptions: { flexDirection: 'row', gap: 12, marginTop: 14 },
+  colorOption: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  selectedColorOption: { borderWidth: 3, borderColor: '#FFFFFF', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 4, elevation: 3 },
   statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
   modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { width: '85%', padding: 24, borderRadius: 20, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12 },

@@ -27,12 +27,14 @@ export default function HomeScreen() {
   const router = useRouter();
   const { transactions, investments, isSyncing, triggerUploadSync } =
     useAppData();
-  const { theme } = useTheme();
+  const { theme, accentColor } = useTheme();
 
   const cardColor = useThemeColor({}, "card");
   const textColor = useThemeColor({}, "text");
   const secondaryTextColor = useThemeColor({}, "tabIconDefault");
   const separatorColor = useThemeColor({}, "background");
+  const backgroundColor = useThemeColor({}, "background");
+  const accentTextColor = "#FFFFFF";
 
   // --- ✅ START: UPDATED CALCULATION LOGIC ---
   const {
@@ -187,151 +189,140 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <ThemedText style={styles.headerTitle}>Home</ThemedText>
-          <Pressable onPress={() => router.push("/settings")}>
-            <Feather name="settings" size={24} color={secondaryTextColor} />
+          <View>
+            <ThemedText style={[styles.eyebrow, { color: secondaryTextColor }]}>
+              YOUR OVERVIEW
+            </ThemedText>
+            <ThemedText style={styles.headerTitle}>Good to see you</ThemedText>
+          </View>
+          <Pressable
+            accessibilityLabel="Open settings"
+            accessibilityRole="button"
+            onPress={() => router.push("/settings")}
+            style={({ pressed }) => [
+              styles.settingsButton,
+              { backgroundColor: cardColor, opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <Feather name="settings" size={20} color={textColor} />
           </Pressable>
         </View>
 
-        {/* --- ✅ START: UPDATED SUMMARY CARD UI --- */}
         <ThemedView
           style={[
             styles.summaryCard,
-            { backgroundColor: cardColor, shadowColor: textColor },
+            {
+              backgroundColor: accentColor,
+              shadowColor: textColor,
+              borderColor: theme === "light" ? "#24554B" : "#A8E3D4",
+            },
           ]}
         >
           <ThemedText
-            style={[styles.summaryLabel, { color: secondaryTextColor }]}
+            style={[styles.summaryLabel, { color: accentTextColor, opacity: 0.75 }]}
           >
             Net Worth
           </ThemedText>
-          <ThemedText style={styles.netWorthAmount}>
+          <ThemedText style={[styles.netWorthAmount, { color: accentTextColor }]}>
             {formatAmount(netWorth)}
           </ThemedText>
 
           <View
-            style={[styles.summaryDivider, { backgroundColor: separatorColor }]}
+            style={[styles.summaryDivider, { backgroundColor: accentTextColor, opacity: 0.2 }]}
           />
 
-          {/* Total Savings Item (Replaces monthly savings) */}
-          <View style={styles.summaryListItem}>
-            <View style={styles.summaryItemLeft}>
-              <View style={styles.summaryIconContainer}>
-                <Feather name="shield" size={20} color="#34C759" />
-              </View>
-              <View>
-                <ThemedText style={styles.summaryItemTitle}>Total Savings</ThemedText>
-                <ThemedText
-                  style={[
-                    styles.summaryItemSubtitle,
-                    { color: secondaryTextColor },
-                  ]}
-                >
-                  (Cash Balance)
-                </ThemedText>
-              </View>
+          <View style={styles.summaryGrid}>
+            <View style={styles.summaryGridItem}>
+              <ThemedText style={[styles.summaryItemSubtitle, { color: accentTextColor, opacity: 0.7 }]}>
+                Cash balance
+              </ThemedText>
+              <ThemedText style={[styles.summaryAmount, { color: accentTextColor }]}>
+                {formatAmount(totalSavings)}
+              </ThemedText>
             </View>
-            <ThemedText style={[styles.summaryAmount, { color: "#34C759" }]}>
-              {formatAmount(totalSavings)}
-            </ThemedText>
-          </View>
-
-          {/* NEW: Total Income Item */}
-          <View style={styles.summaryListItem}>
-            <View style={styles.summaryItemLeft}>
-              <View style={styles.summaryIconContainer}>
-                <Feather name="arrow-up-circle" size={20} color={textColor} />
-              </View>
-              <View>
-                <ThemedText style={styles.summaryItemTitle}>
-                  Total Income
-                </ThemedText>
-                <ThemedText
-                  style={[
-                    styles.summaryItemSubtitle,
-                    { color: secondaryTextColor },
-                  ]}
-                >
-                  (All-Time)
-                </ThemedText>
-              </View>
+            <View style={[styles.summaryGridDivider, { backgroundColor: accentTextColor, opacity: 0.2 }]} />
+            <View style={styles.summaryGridItem}>
+              <ThemedText style={[styles.summaryItemSubtitle, { color: accentTextColor, opacity: 0.7 }]}>
+                Investments
+              </ThemedText>
+              <ThemedText style={[styles.summaryAmount, { color: accentTextColor }]}>
+                {formatAmount(totalInvestmentValue)}
+              </ThemedText>
             </View>
-            <ThemedText style={styles.summaryAmount}>
-              {formatAmount(totalIncome)}
-            </ThemedText>
-          </View>
-          
-          {/* Total Expenses Item (Replaces monthly expenses) */}
-          <View style={styles.summaryListItem}>
-            <View style={styles.summaryItemLeft}>
-              <View style={styles.summaryIconContainer}>
-                <Feather name="arrow-down-circle" size={20} color={textColor} />
-              </View>
-              <View>
-                <ThemedText style={styles.summaryItemTitle}>
-                  Total Expenses
-                </ThemedText>
-                <ThemedText
-                  style={[
-                    styles.summaryItemSubtitle,
-                    { color: secondaryTextColor },
-                  ]}
-                >
-                  (All-Time)
-                </ThemedText>
-              </View>
-            </View>
-            <ThemedText style={styles.summaryAmount}>
-              {formatAmount(totalExpenses)}
-            </ThemedText>
-          </View>
-
-          {/* Investments Item (No change) */}
-          <View style={styles.summaryListItem}>
-            <View style={styles.summaryItemLeft}>
-              <View style={styles.summaryIconContainer}>
-                <Feather name="trending-up" size={20} color="#007AFF" />
-              </View>
-              <View>
-                <ThemedText style={styles.summaryItemTitle}>
-                  Investments
-                </ThemedText>
-                <ThemedText
-                  style={[
-                    styles.summaryItemSubtitle,
-                    { color: secondaryTextColor },
-                  ]}
-                >
-                  (Active Value)
-                </ThemedText>
-              </View>
-            </View>
-            <ThemedText style={styles.summaryAmount}>
-              {formatAmount(totalInvestmentValue)}
-            </ThemedText>
           </View>
         </ThemedView>
-        {/* --- ✅ END: UPDATED SUMMARY CARD UI --- */}
 
-        {/* --- MODIFIED: Analytics Card header is now a static label --- */}
+        <View style={styles.quickActions}>
+          <ThemedText style={styles.sectionHeading}>Quick actions</ThemedText>
+          <View style={styles.quickActionRow}>
+            {[
+              { label: "Expense", icon: "arrow-down", route: "/add-expense", color: "#FF6B6B" },
+              { label: "Income", icon: "arrow-up", route: "/add-income", color: "#34C759" },
+              { label: "Invest", icon: "trending-up", route: "/add-investment", color: "#4E9FE6" },
+            ].map((action) => (
+              <Pressable
+                key={action.label}
+                accessibilityRole="button"
+                accessibilityLabel={`Add ${action.label.toLowerCase()}`}
+                onPress={() => router.push(action.route as "/add-expense" | "/add-income" | "/add-investment")}
+                style={({ pressed }) => [
+                  styles.quickAction,
+                  { backgroundColor: cardColor, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <View style={[styles.quickActionIcon, { backgroundColor: `${action.color}20` }]}>
+                  <Feather name={action.icon as "arrow-down" | "arrow-up" | "trending-up"} size={18} color={action.color} />
+                </View>
+                <ThemedText style={styles.quickActionLabel}>{action.label}</ThemedText>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
         <ThemedView
-          lightColor="#1C1C1E"
-          darkColor={cardColor}
-          style={[styles.analyticsCard, { shadowColor: textColor }]}
+          style={[styles.breakdownCard, { backgroundColor: cardColor, shadowColor: textColor }]}
+        >
+          <View style={styles.sectionHeader}>
+            <View>
+              <ThemedText style={styles.sectionHeading}>All-time breakdown</ThemedText>
+              <ThemedText style={[styles.sectionCaption, { color: secondaryTextColor }]}>
+                Income and spending at a glance
+              </ThemedText>
+            </View>
+            <Feather name="bar-chart-2" size={20} color={secondaryTextColor} />
+          </View>
+          <View style={styles.breakdownRows}>
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLabel}>
+                <View style={[styles.breakdownDot, { backgroundColor: "#34C759" }]} />
+                <ThemedText>Income</ThemedText>
+              </View>
+              <ThemedText style={[styles.breakdownValue, { color: "#34C759" }]}>
+                {formatAmount(totalIncome)}
+              </ThemedText>
+            </View>
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLabel}>
+                <View style={[styles.breakdownDot, { backgroundColor: "#FF6B6B" }]} />
+                <ThemedText>Expenses</ThemedText>
+              </View>
+              <ThemedText style={styles.breakdownValue}>{formatAmount(totalExpenses)}</ThemedText>
+            </View>
+          </View>
+        </ThemedView>
+
+        {/* --- Weekly spending --- */}
+        <ThemedView
+          style={[styles.analyticsCard, { backgroundColor: cardColor, shadowColor: textColor }]}
         >
           <View style={styles.analyticsHeader}>
-            <ThemedText
-              lightColor="#FFFFFF"
-              darkColor={textColor}
-              style={styles.analyticsTitle}
-            >
-              Weekly Spend
-            </ThemedText>
-            <ThemedText
-              style={[styles.analyticsMonth, { color: secondaryTextColor }]}
-            >
-              
-            </ThemedText>
+            <View>
+              <ThemedText style={styles.analyticsTitle}>Weekly spending</ThemedText>
+              <ThemedText style={[styles.sectionCaption, { color: secondaryTextColor }]}>
+                Last 7 days
+              </ThemedText>
+            </View>
+            <Feather name="activity" size={20} color={secondaryTextColor} />
           </View>
           <View style={styles.chartContainer}>
             {dynamicWeeklyData.map((item) => {
@@ -339,13 +330,16 @@ export default function HomeScreen() {
                 ...dynamicWeeklyData.map((d) => d.amount),
                 1
               );
-              const barHeight = (item.amount / maxAmount) * 80;
+              const barHeight = item.amount > 0 ? Math.max((item.amount / maxAmount) * 80, 8) : 4;
               return (
                 <View key={item.date} style={styles.barWrapper}>
-                  <View style={[styles.bar, { height: barHeight }]} />
-                  <ThemedText
-                    style={[styles.barLabel, { color: secondaryTextColor }]}
-                  >
+                  <View
+                    style={[
+                      styles.bar,
+                      { height: barHeight, backgroundColor: item.amount > 0 ? accentColor : separatorColor },
+                    ]}
+                  />
+                  <ThemedText style={[styles.barLabel, { color: secondaryTextColor }]}>
                     {item.day}
                   </ThemedText>
                 </View>
@@ -362,9 +356,16 @@ export default function HomeScreen() {
           ]}
         >
           <View style={styles.upcomingHeader}>
-            <ThemedText style={styles.upcomingTitle}>Recent</ThemedText>
+            <View>
+              <ThemedText style={styles.upcomingTitle}>Recent activity</ThemedText>
+              <ThemedText style={[styles.sectionCaption, { color: secondaryTextColor }]}>
+                Your latest transactions
+              </ThemedText>
+            </View>
             <Link href="/history" asChild>
-              <ThemedText style={styles.seeAllText}>See All</ThemedText>
+              <Pressable accessibilityRole="button">
+                <ThemedText style={[styles.seeAllText, { color: accentColor }]}>See all</ThemedText>
+              </Pressable>
             </Link>
           </View>
           {recentTransactions.length > 0 ? (
@@ -376,10 +377,10 @@ export default function HomeScreen() {
                   { borderBottomColor: separatorColor },
                 ]}
               >
-                <ThemedView style={styles.transactionIconContainer}>
+                <ThemedView style={[styles.transactionIconContainer, { backgroundColor: backgroundColor }]}>
                   <Feather
                     name={getCategoryIcon(tx.category)}
-                    size={20}
+                    size={18}
                     color={tx.type === "income" ? "#34C759" : textColor}
                   />
                 </ThemedView>
@@ -387,12 +388,7 @@ export default function HomeScreen() {
                   <ThemedText style={styles.transactionName}>
                     {tx.category}
                   </ThemedText>
-                  <ThemedText
-                    style={[
-                      styles.transactionInfo,
-                      { color: secondaryTextColor },
-                    ]}
-                  >
+                  <ThemedText style={[styles.transactionInfo, { color: secondaryTextColor }]}>
                     {new Date(tx.date).toLocaleDateString("en-IN", {
                       day: "numeric",
                       month: "short",
@@ -410,9 +406,7 @@ export default function HomeScreen() {
               </View>
             ))
           ) : (
-            <ThemedText
-              style={[styles.noTransactionsText, { color: secondaryTextColor }]}
-            >
+            <ThemedText style={[styles.noTransactionsText, { color: secondaryTextColor }]}>
               No recent transactions.
             </ThemedText>
           )}
@@ -425,27 +419,42 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   contentContainer: {
-    paddingTop: 20,
+    paddingTop: 26,
     paddingBottom: 100,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
   },
   loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: 30,
-    marginBottom: 20,
+    paddingTop: 22,
+    marginBottom: 18,
   },
-  headerTitle: { fontSize: 28, fontWeight: "bold" },
-  summaryCard: {
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 20,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
+  eyebrow: { fontSize: 11, fontWeight: "700", letterSpacing: 1.2, marginBottom: 4 },
+  headerTitle: { fontSize: 28, fontWeight: "800", letterSpacing: -0.5 },
+  settingsButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     elevation: 2,
+  },
+  summaryCard: {
+    borderRadius: 24,
+    paddingHorizontal: 22,
+    paddingVertical: 28,
+    marginBottom: 18,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 4,
     alignItems: "center",
   },
   summaryLabel: {
@@ -457,48 +466,74 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   netWorthAmount: {
-    fontSize: 32,
-    fontWeight: "bold",
-    marginTop: 4,
+    fontSize: 34,
+    lineHeight: 42,
+    fontWeight: "800",
+    marginTop: 5,
+    letterSpacing: -0.7,
   },
   summaryDivider: {
     height: 1,
     width: "100%",
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 18,
+    marginBottom: 4,
   },
-  summaryListItem: {
+  summaryGrid: {
     flexDirection: "row",
     alignItems: "center",
     width: "100%",
-    paddingVertical: 12,
-    justifyContent: "space-between",
+    paddingTop: 10,
   },
-  summaryItemLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  summaryItemTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
+  summaryGridItem: { flex: 1, gap: 5 },
+  summaryGridDivider: { width: 1, height: 32, marginHorizontal: 16 },
   summaryItemSubtitle: {
     fontSize: 12,
-    marginTop: 2,
+    fontWeight: "600",
   },
-  summaryIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: "center",
+  quickActions: { marginBottom: 18 },
+  sectionHeading: { fontSize: 17, fontWeight: "700" },
+  sectionCaption: { fontSize: 12, marginTop: 4 },
+  quickActionRow: { flexDirection: "row", gap: 10, marginTop: 10 },
+  quickAction: {
+    flex: 1,
     alignItems: "center",
-    marginRight: 16,
-    backgroundColor: "rgba(128, 128, 128, 0.1)",
+    justifyContent: "center",
+    minHeight: 88,
+    borderRadius: 18,
+    paddingVertical: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
   },
+  quickActionIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 7,
+  },
+  quickActionLabel: { fontSize: 12, fontWeight: "600" },
+  breakdownCard: {
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 18,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  breakdownRows: { marginTop: 16, gap: 14 },
+  breakdownRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  breakdownLabel: { flexDirection: "row", alignItems: "center", gap: 9 },
+  breakdownDot: { width: 8, height: 8, borderRadius: 4 },
+  breakdownValue: { fontSize: 15, fontWeight: "700" },
   analyticsCard: {
     borderRadius: 20,
-    padding: 24,
-    marginBottom: 20,
+    padding: 18,
+    marginBottom: 18,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 12,
@@ -508,9 +543,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  analyticsTitle: { fontSize: 18, fontWeight: "600" },
+  analyticsTitle: { fontSize: 17, fontWeight: "700" },
   analyticsMonth: { fontSize: 16 },
   chartContainer: {
     flexDirection: "row",
@@ -519,11 +554,11 @@ const styles = StyleSheet.create({
     height: 100,
   },
   barWrapper: { alignItems: "center" },
-  bar: { width: 12, backgroundColor: "#8E8E93", borderRadius: 6 },
+  bar: { width: 14, borderRadius: 7 },
   barLabel: { marginTop: 8, fontSize: 12 },
   upcomingSection: {
     borderRadius: 20,
-    padding: 24,
+    padding: 18,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 12,
@@ -535,21 +570,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
   },
-  upcomingTitle: { fontSize: 18, fontWeight: "600" },
-  seeAllText: { fontSize: 14, color: "#007AFF", fontWeight: "500" },
+  upcomingTitle: { fontSize: 17, fontWeight: "700" },
+  seeAllText: { fontSize: 13, fontWeight: "700" },
   transactionItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 13,
     borderBottomWidth: 1,
   },
   transactionIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
+    marginRight: 13,
   },
   transactionDetails: { flex: 1 },
   transactionName: { fontSize: 16, fontWeight: "500" },

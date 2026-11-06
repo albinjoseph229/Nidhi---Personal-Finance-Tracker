@@ -157,17 +157,19 @@ const styles = StyleSheet.create({
   },
   amountContainer: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: 'center',
   },
   currencySymbol: { 
     fontSize: 32, 
     fontWeight: "600", 
     marginRight: 8,
-    marginTop: 12,
+    lineHeight: 76,
   },
   amountInput: { 
     fontSize: 64, 
+    lineHeight: 76,
+    paddingVertical: 0,
     fontWeight: "400",
     minWidth: 80,
     textAlign: 'center',

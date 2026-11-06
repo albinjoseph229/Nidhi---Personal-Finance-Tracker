@@ -39,7 +39,7 @@ interface Category {
 const investmentCategories: Category[] = [
   { name: "Stock", icon: "bar-chart-2", color: "#45B7D1" },
   { name: "Gold", icon: "disc", color: "#FECA57" },
-  { name: "Silver", icon: "aperture", color: "#BDC3C7" },
+  { name: "FD", icon: "lock", color: "#7B8CDE" },
   { name: "Crypto", icon: "dollar-sign", color: "#9B59B6" },
   { name: "Mutual Fund", icon: "layers", color: "#4ECDC4" },
   { name: "Other", icon: "archive", color: "#96CEB4" },
@@ -467,15 +467,18 @@ export default function AddInvestmentScreen() {
                 >
                   Purchase Price
                 </ThemedText>
-                <TextInput
-                  style={[styles.textInput, { color: textColor }]}
-                  placeholder="e.g., 1500"
-                  placeholderTextColor={placeholderColor}
-                  value={purchasePrice}
-                  onChangeText={setPurchasePrice}
-                  editable={!isSold}
-                  keyboardType="decimal-pad"
-                />
+                <View style={styles.currencyInputRow}>
+                  <ThemedText style={[styles.inputCurrency, { color: secondaryTextColor }]}>₹</ThemedText>
+                  <TextInput
+                    style={[styles.textInput, styles.currencyTextInput, { color: textColor }]}
+                    placeholder="e.g., 1500"
+                    placeholderTextColor={placeholderColor}
+                    value={purchasePrice}
+                    onChangeText={setPurchasePrice}
+                    editable={!isSold}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
               </View>
             </View>
             <View style={styles.inputContainer}>
@@ -484,15 +487,18 @@ export default function AddInvestmentScreen() {
               >
                 Current Value
               </ThemedText>
-              <TextInput
-                style={[styles.textInput, { color: textColor, marginTop: 4 }]}
-                placeholder="e.g., 1650"
-                placeholderTextColor={placeholderColor}
-                value={currentValue}
-                onChangeText={setCurrentValue}
-                editable={!isSold}
-                keyboardType="decimal-pad"
-              />
+              <View style={styles.currencyInputRow}>
+                <ThemedText style={[styles.inputCurrency, { color: secondaryTextColor }]}>₹</ThemedText>
+                <TextInput
+                  style={[styles.textInput, styles.currencyTextInput, { color: textColor, marginTop: 4 }]}
+                  placeholder="e.g., 1650"
+                  placeholderTextColor={placeholderColor}
+                  value={currentValue}
+                  onChangeText={setCurrentValue}
+                  editable={!isSold}
+                  keyboardType="decimal-pad"
+                />
+              </View>
             </View>
 
             {/* --- ✅ START: NEW UI FOR THE TOGGLE --- */}
@@ -519,11 +525,14 @@ export default function AddInvestmentScreen() {
                 <ThemedText style={[styles.detailLabel, { color: "#4CAF50" }]}>
                   Sold Price (per unit)
                 </ThemedText>
-                <TextInput
-                  style={[styles.textInput, { color: "#4CAF50", fontWeight: "bold" }]}
-                  value={String(soldPrice)}
-                  editable={false}
-                />
+                <View style={styles.currencyInputRow}>
+                  <ThemedText style={[styles.inputCurrency, { color: "#4CAF50" }]}>₹</ThemedText>
+                  <TextInput
+                    style={[styles.textInput, styles.currencyTextInput, { color: "#4CAF50", fontWeight: "bold" }]}
+                    value={String(soldPrice)}
+                    editable={false}
+                  />
+                </View>
               </View>
             )}
 
@@ -636,6 +645,18 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: "#E5E5EA",
+  },
+  currencyInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  inputCurrency: {
+    fontSize: 18,
+    lineHeight: 24,
+    marginRight: 6,
+  },
+  currencyTextInput: {
+    flex: 1,
   },
   categoryContainer: {
     flexDirection: "row",

@@ -41,7 +41,7 @@ const EXPENSE_CATEGORIES: Category[] = [
   { name: "Health", icon: "heart", color: "#FECA57" },
   { name: "Leisure", icon: "smile", color: "#FF9FF3" },
   { name: "Home", icon: "home", color: "#54A0FF" },
-  { name: "Education", icon: "book-open", color: "#5F27CD" },
+  { name: "Rent", icon: "key", color: "#5F27CD" },
   { name: "Other", icon: "archive", color: "#00D2D3" },
 ];
 
@@ -390,14 +390,14 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardTitle: { fontSize: 18, fontWeight: "600", marginBottom: 20 },
-  amountContainer: { flexDirection: "row", alignItems: "flex-start" },
+  amountContainer: { flexDirection: "row", alignItems: "center" },
   currencySymbol: {
     fontSize: 32,
     fontWeight: "600",
     marginRight: 8,
-    marginTop: 12,
+    lineHeight: 76,
   },
-  amountInput: { fontSize: 64, fontWeight: "400", flex: 1 },
+  amountInput: { fontSize: 64, lineHeight: 76, paddingVertical: 0, fontWeight: "400", flex: 1 },
   categoryButton: {
     width: "30%",
     aspectRatio: 1,

@@ -67,7 +67,7 @@ export interface Budget {
 export interface Investment {
   uuid: string;
   name: string;
-  type: 'Stock' | 'Gold' | 'Silver' | 'Crypto' | 'Mutual Fund' | 'Other';
+  type: 'Stock' | 'Gold' | 'FD' | 'Crypto' | 'Mutual Fund' | 'Other';
   quantity: number;
   purchasePrice: number;
   purchaseDate: string;

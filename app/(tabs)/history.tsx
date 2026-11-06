@@ -30,7 +30,7 @@ export default function HistoryScreen() {
   const { transactions, isSyncing, triggerUploadSync } = useAppData();
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
-  const { theme } = useTheme();
+  const { theme, accentColor } = useTheme();
 
   const cardColor = useThemeColor({}, 'card');
   const textColor = useThemeColor({}, 'text');
@@ -130,6 +130,7 @@ export default function HistoryScreen() {
 
   const renderTransactionItem = useCallback(({ item, index, section }: { item: Transaction, index: number, section: any }) => {
     const isLastItem = index === section.originalData.length - 1;
+    const isFirstItem = index === 0;
     
     // Use Animated.View with the new `layout` prop for smooth animations
     return (
@@ -152,6 +153,7 @@ export default function HistoryScreen() {
           <View style={[
             styles.item, 
             { backgroundColor: cardColor, borderBottomColor: separatorColor }, 
+            isFirstItem && styles.firstItem,
             isLastItem && styles.lastItem
           ]}>
             <ThemedView style={[styles.itemIcon, { backgroundColor: separatorColor }]}>
@@ -177,7 +179,7 @@ export default function HistoryScreen() {
               ) : null}
             </View>
             <ThemedText style={[styles.itemAmount, { color: item.type === 'income' ? '#34C759' : textColor }]}>
-              {formatAmount(item.amount)}
+              {item.type === 'income' ? '+' : '-'}{formatAmount(item.amount)}
             </ThemedText>
           </View>
         </Pressable>
@@ -194,53 +196,74 @@ export default function HistoryScreen() {
         style={[
           styles.sectionHeader,
           { backgroundColor: cardColor, borderBottomColor: separatorColor },
-          isCollapsed && styles.collapsedSectionHeader
+          isCollapsed ? styles.collapsedSectionHeader : styles.expandedSectionHeader
         ]}
         onPress={() => toggleSection(section.title)}
         activeOpacity={0.8}
       >
-        <View style={styles.sectionHeaderLeft}>
-          <ThemedText style={styles.sectionTitle}>{section.title}</ThemedText>
-          <ThemedText style={[styles.sectionSubTitle, { color: secondaryTextColor }]}>
-            {section.originalData.length} transaction{section.originalData.length !== 1 ? 's' : ''}
-          </ThemedText>
+        <View style={styles.sectionTopRow}>
+          <View style={styles.sectionHeaderLeft}>
+          <View style={styles.monthTitleRow}>
+            <View style={[styles.monthIcon, { backgroundColor: `${accentColor}18` }]}>
+              <Feather name="calendar" size={16} color={accentColor} />
+            </View>
+            <View>
+              <ThemedText style={styles.sectionTitle}>{section.title}</ThemedText>
+              <ThemedText style={[styles.sectionSubTitle, { color: secondaryTextColor }]}>
+                {section.originalData.length} transaction{section.originalData.length !== 1 ? 's' : ''}
+              </ThemedText>
+            </View>
+          </View>
+          </View>
+          <View style={styles.chevronContainer}>
+            <Feather
+              name={expandedSections.has(section.title) ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={secondaryTextColor}
+            />
+          </View>
         </View>
         <View style={styles.sectionHeaderRight}>
           <View style={styles.summaryRow}>
-            <ThemedText style={styles.summaryLabel}>Income:</ThemedText>
+            <View style={styles.summaryLabelGroup}>
+              <View style={[styles.summaryDot, { backgroundColor: '#34C759' }]} />
+              <ThemedText style={styles.summaryLabel}>Income</ThemedText>
+            </View>
             <ThemedText style={[styles.summaryValue, { color: '#34C759' }]}>
               {formatAmount(section.totalIncome)}
             </ThemedText>
           </View>
           <View style={styles.summaryRow}>
-            <ThemedText style={styles.summaryLabel}>Expenses:</ThemedText>
+            <View style={styles.summaryLabelGroup}>
+              <View style={[styles.summaryDot, { backgroundColor: '#FF6B6B' }]} />
+              <ThemedText style={styles.summaryLabel}>Expenses</ThemedText>
+            </View>
             <ThemedText style={[styles.summaryValue, { color: '#FF3B30' }]}>
               {formatAmount(section.totalExpenses)}
             </ThemedText>
           </View>
           <View style={styles.summaryRow}>
-            <ThemedText style={[styles.summaryLabel, styles.summaryLabelBold]}>Savings:</ThemedText>
-            <ThemedText style={[styles.summaryValue, styles.summaryValueBold]}>
+            <ThemedText style={[styles.summaryLabel, styles.summaryLabelBold]}>Net</ThemedText>
+            <ThemedText style={[styles.summaryValue, styles.summaryValueBold, { color: section.savings >= 0 ? '#34C759' : '#FF3B30' }]}>
               {formatAmount(section.savings)}
             </ThemedText>
           </View>
         </View>
-        <View style={styles.chevronContainer}>
-          <Feather
-            name={expandedSections.has(section.title) ? 'chevron-up' : 'chevron-down'}
-            size={20}
-            color={secondaryTextColor}
-          />
-        </View>
       </TouchableOpacity>
     );
-  }, [expandedSections, cardColor, separatorColor, secondaryTextColor, toggleSection]);
+  }, [expandedSections, cardColor, separatorColor, secondaryTextColor, accentColor, toggleSection]);
 
   return (
     <ThemedView style={styles.container}>
       <StatusBar style={theme === 'light' ? 'dark' : 'light'} />
       <View style={styles.header}>
-        <ThemedText style={styles.headerTitle}>History</ThemedText>
+        <View>
+          <ThemedText style={styles.eyebrow}>ACTIVITY</ThemedText>
+          <ThemedText style={styles.headerTitle}>History</ThemedText>
+          <ThemedText style={[styles.headerSubtitle, { color: secondaryTextColor }]}>
+            {transactions.length} transaction{transactions.length !== 1 ? 's' : ''} recorded
+          </ThemedText>
+        </View>
       </View>
       <SectionList
         sections={sections}
@@ -258,7 +281,9 @@ export default function HistoryScreen() {
         ListEmptyComponent={
           // ... (no changes here)
           <View style={styles.emptyContainer}>
-            <Feather name="search" size={48} color={secondaryTextColor} style={{ opacity: 0.5 }}/>
+            <View style={[styles.emptyIcon, { backgroundColor: cardColor }]}>
+              <Feather name={searchQuery ? 'search' : 'inbox'} size={30} color={secondaryTextColor} />
+            </View>
             <ThemedText style={[styles.emptyText, { color: secondaryTextColor }]}>No Transactions Found</ThemedText>
             <ThemedText style={[styles.emptySubtext, { color: secondaryTextColor }]}>
               {searchQuery ? 'Try a different search term.' : 'Your transaction history is empty.'}
@@ -280,66 +305,83 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  // ... (all styles remain the same)
   container: { flex: 1 },
-  header: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 10 },
-  headerTitle: { fontSize: 28, fontWeight: 'bold', lineHeight: 34 },
-  listContentContainer: { paddingHorizontal: 20, paddingBottom: 100 },
-  searchContainer: { marginBottom: 20 },
+  header: { paddingTop: 48, paddingHorizontal: 20, paddingBottom: 16 },
+  eyebrow: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 4 },
+  headerTitle: { fontSize: 30, fontWeight: '800', lineHeight: 36, letterSpacing: -0.5 },
+  headerSubtitle: { fontSize: 13, marginTop: 5 },
+  listContentContainer: { paddingHorizontal: 18, paddingBottom: 100 },
+  searchContainer: { marginBottom: 16 },
   sectionHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    padding: 16, 
-    borderTopLeftRadius: 16, 
-    borderTopRightRadius: 16, 
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 18,
     borderBottomWidth: 1,
-    minHeight: 80,
+  },
+  expandedSectionHeader: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 1,
   },
   collapsedSectionHeader: {
-    borderRadius: 16,
     marginBottom: 16,
     borderBottomWidth: 0,
   },
-  sectionHeaderLeft: { flex: 1 },
-  sectionHeaderRight: { marginRight: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '600' },
-  sectionSubTitle: { fontSize: 12, marginTop: 2 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', width: 140 },
-  summaryLabel: { fontSize: 12 },
-  summaryValue: { fontSize: 12, fontWeight: '500' },
-  summaryLabelBold: { fontWeight: 'bold' },
-  summaryValueBold: { fontWeight: 'bold' },
-  chevronContainer: {
-    padding: 4,
+  sectionTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionHeaderLeft: { flex: 1, marginRight: 10 },
+  monthTitleRow: { flexDirection: 'row', alignItems: 'center' },
+  monthIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
+  sectionTitle: { fontSize: 16, fontWeight: '700' },
+  sectionSubTitle: { fontSize: 12, marginTop: 2 },
+  sectionHeaderRight: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(125, 137, 133, 0.14)' },
+  summaryRow: { flex: 1, alignItems: 'center', marginVertical: 2, flexDirection: 'column', gap: 3 },
+  summaryLabelGroup: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  summaryDot: { width: 6, height: 6, borderRadius: 3 },
+  summaryLabel: { fontSize: 11, color: '#7D8985' },
+  summaryValue: { fontSize: 11, fontWeight: '600' },
+  summaryLabelBold: { fontWeight: '700' },
+  summaryValueBold: { fontWeight: '700' },
+  chevronContainer: { padding: 4, marginLeft: 2 },
   item: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    padding: 16, 
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     borderBottomWidth: 1,
-    minHeight: 72,
+    minHeight: 76,
+  },
+  firstItem: {
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
   },
   lastItem: { 
     borderBottomWidth: 0, 
-    borderBottomLeftRadius: 16, 
-    borderBottomRightRadius: 16, 
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
     marginBottom: 16 
   },
   itemIcon: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 22, 
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     justifyContent: 'center', 
     alignItems: 'center', 
-    marginRight: 16 
+    marginRight: 12
   },
   itemDetails: { flex: 1, marginRight: 8 },
-  itemCategory: { fontSize: 16, fontWeight: '500' },
-  itemDate: { fontSize: 14, marginTop: 2 },
+  itemCategory: { fontSize: 15, fontWeight: '600' },
+  itemDate: { fontSize: 12, marginTop: 3 },
   itemNotes: { fontSize: 12, fontStyle: 'italic', marginTop: 4 },
-  itemAmount: { fontSize: 16, fontWeight: '600' },
-  emptyContainer: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 32 },
-  emptyText: { fontSize: 18, fontWeight: '600', marginTop: 16 },
-  emptySubtext: { fontSize: 14, textAlign: 'center', marginTop: 8 },
+  itemAmount: { fontSize: 14, fontWeight: '700' },
+  emptyContainer: { alignItems: 'center', paddingTop: 72, paddingHorizontal: 32 },
+  emptyIcon: { width: 72, height: 72, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  emptyText: { fontSize: 18, fontWeight: '700', marginTop: 16 },
+  emptySubtext: { fontSize: 14, textAlign: 'center', marginTop: 8, lineHeight: 21 },
 });
